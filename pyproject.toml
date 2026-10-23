@@ -31,7 +31,7 @@ dependencies = [
 [project.optional-dependencies]
 audio = [
     "PyAudioWPatch>=0.2.12; sys_platform == 'win32'",
-    "sounddevice>=0.4; sys_platform != 'win32'",
+    "sounddevice>=0.5.6; sys_platform != 'win32'",
 ]
 
 [project.urls]
