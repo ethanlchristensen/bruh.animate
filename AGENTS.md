@@ -73,8 +73,10 @@ with synchronization can restore an editable project and hide packaging errors.
 
 Update README examples, public docstrings and the relevant guide together.
 `scripts/check_examples.py` executes current Python examples from README,
-`docs/PLAYER.md` and `docs/SOLVER_PLAYBACK.md`; historical migration snippets are
-excluded deliberately. Sphinx builds treat warnings as errors and disable remote
+`docs/PLAYER.md`, `docs/SOLVER_PLAYBACK.md`, and the top-level documentation-site
+RST pages. Keep those examples standalone; historical Markdown migration snippets
+are excluded deliberately. Shell/release commands are never executed by this check.
+Sphinx builds treat warnings as errors and disable remote
 intersphinx inventory requests by default. Use `--online-inventories` explicitly
 when checking those external references.
 

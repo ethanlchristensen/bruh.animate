@@ -1,146 +1,154 @@
 # bruhanimate
 
-[![Downloads](https://static.pepy.tech/badge/bruhanimate)](https://pepy.tech/project/bruhanimate)
+**Composable terminal animations for Python.**
 
-Terminal animations for Python 3.13+. Built-in simulations, custom drawing callbacks,
-and layered scenes all run through one player.
+[![PyPI](https://img.shields.io/pypi/v/bruhanimate)](https://pypi.org/project/bruhanimate/)
+[![Python](https://img.shields.io/badge/python-3.13%2B-blue)](https://pypi.org/project/bruhanimate/)
+[![CI](https://github.com/ethanlchristensen/bruh.animate/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/ethanlchristensen/bruh.animate/actions/workflows/test.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/ethanlchristensen/bruh.animate/blob/main/LICENSE)
 
-The **1.x API** is a breaking change from 0.2.x. See the
-[migration guide](https://github.com/FNBBDevs/bruhanimate/blob/main/docs/MIGRATING_1.0.md) for changes from 0.2.x.
+[Documentation](https://ethanlchristensen.github.io/bruh.animate/) ·
+[Getting started](https://ethanlchristensen.github.io/bruh.animate/getting_started.html) ·
+[Core concepts](https://ethanlchristensen.github.io/bruh.animate/concepts.html) ·
+[Release guide](https://github.com/ethanlchristensen/bruh.animate/blob/main/docs/RELEASING.md)
 
-## Install
+Turn a simulation, drawing function, or stream of solver snapshots into an ASCII
+animation. One player handles timing, input, changed-cell rendering, and terminal
+cleanup, so your code can concentrate on what happens and how it looks.
+
+- **Built-in effects:** snow, fire, rain, stars, Matrix, cellular automata, and more.
+- **Layered scenes:** combine animated backgrounds, text, and custom drawings.
+- **Solver playback:** pause, step, and change speed while consuming snapshots lazily.
+- **Grid helpers:** board coordinates, centered layouts, paths, markers, and clipping.
+
+> **Version 1 is a breaking release.** The old renderer hierarchy is replaced by
+> `play`, `Scene`, and `Playback`. See the [migration guide](https://ethanlchristensen.github.io/bruh.animate/migration.html).
+
+## Quick start
+
+Requires Python 3.13 or newer. After a 1.x release is published:
 
 ```sh
-pip install --upgrade "bruhanimate>=1,<2"
-# Optional audio capture dependencies:
-pip install --upgrade "bruhanimate[audio]>=1,<2"
+python -m pip install "bruhanimate>=1,<2"
 ```
 
-For unreleased changes, install the source checkout with `pip install .` or
-`pip install ".[audio]"`. The commands above require a published 1.x release.
+For unreleased code, use the [source checkout](#development). Optional audio
+capture dependencies are available with `python -m pip install "bruhanimate[audio]>=1,<2"`.
 
-## Play an effect
+Save this as `animation.py` and run `python animation.py` in a terminal:
 
 ```python
-from bruhanimate import SnowSettings, play
+from bruhanimate import play
 
-play("snow", settings=SnowSettings(intensity=0.02, wind=0.2),
-     fps=60, updates_per_second=30)
+play("snow", preset="light", fps=60, updates_per_second=30)
 ```
 
-`q`, Escape, or Ctrl+C exits and restores the terminal. `frames=120` limits
-presentations. `fps` controls drawing; `updates_per_second` controls simulation.
-Without an explicit update rate, the player updates once per presentation.
-Built-in simulations advance one step per tick; their settings use tick units.
+Press **q**, **Escape**, or **Ctrl+C** to quit and restore the terminal.
+`fps` controls presentation; `updates_per_second` controls simulation ticks.
+Set `frames=120` to limit the number of presented frames.
 
-Discover effects and presets:
+## Build a scene
 
-```python
-from bruhanimate import effect_registry
-
-for name, entry in effect_registry.entries().items():
-    print(name, entry.description, list(entry.presets))
-```
-
-Registered effects: `audio`, `automaton`, `boids`, `diffusion`, `drawlines`, `fire`,
-`firework`, `gol`, `julia`, `matrix`, `noise`, `offset`, `perlin`, `plasma`, `rain`,
-`sand`, `snow`, `stars`, `static`, `twinkle`, and `voronoi`.
-
-## Compose content
+Put a title over an animated background:
 
 ```python
-from bruhanimate import ImageEffect, Scene, effect_registry, get_image, play
+from bruhanimate import ImageEffect, Scene, effect_registry, play
+
 
 def build(buffer):
-    return Scene(
-        effect_registry.create("snow", buffer, " ", preset="light"),
-        ImageEffect(get_image("bruh")),
-    )
+    snow = effect_registry.create("snow", buffer, " ", preset="light")
+    return Scene(snow, ImageEffect("Advent of Code"))
+
 
 play(effect_factory=build, fps=60, updates_per_second=30)
 ```
 
-Scenes paint from back to front. `None` cells reveal lower layers; wrap an
-animation in `Layer(animation, transparent=True)` to reveal them through plain
-spaces too. `ImageEffect` centers by default, supports explicit x/y coordinates,
-and accepts a velocity in cells per second for panning.
+The factory receives a screen-sized buffer. A scene paints its children from back
+to front, and `ImageEffect` centers text by default. Use
+`Layer(animation, transparent=True)` when plain spaces should reveal lower layers;
+`None` cells are always transparent.
 
-`get_image()` retrieves bundled ASCII art. `text_to_image()` uses PyFiglet;
-it does not load raster image files.
+## Animate a solver
 
-## Draw your own animation
-
-```python
-from bruhanimate import CallbackEffect, play
-
-state = {"step": 0}
-
-def update(dt):
-    state["step"] += 1
-
-def draw(buffer):
-    buffer.put_at_center(buffer.height() // 2, f"Puzzle step: {state['step']}")
-
-play(CallbackEffect(draw, update=update), fps=60, updates_per_second=10)
-```
-
-Advance the puzzle in `update`, and only read its state in `draw`. For persistent
-raster simulations, subclass `BaseEffect` and implement `update(dt)`; its default
-`draw` copies the current raster without advancing it. Use an effect factory to
-receive a correctly sized private buffer.
-
-## Animate solver snapshots
+Yield snapshots from your solver and describe how to draw one:
 
 ```python
 from bruhanimate import Playback, draw_grid, play
 
 board = ("S...", ".##.", "...E")
 
+
 def states():
     yield from ((0, 0), (1, 0), (2, 0), (3, 0), (3, 1), (3, 2))
+
 
 def draw(position, buffer):
     grid = draw_grid(buffer, board, spacing=(2, 1))
     grid.put(*position, "@")
 
+
 animation = Playback(states(), draw, steps_per_second=5)
-play(animation, fps=60, event_handler=animation.handle_event, on_complete="exit")
+play(animation, fps=60, event_handler=animation.handle_event, on_complete="hold")
 ```
 
-Space pauses, n/right steps, +/- changes speed, and q quits. Playback consumes
-states lazily and closes its iterator on exhaustion or early quit. Grid drawing
-handles centering, spacing, camera offsets, and clipping. See the
-[solver playback guide](https://github.com/FNBBDevs/bruhanimate/blob/main/docs/SOLVER_PLAYBACK.md) for snapshots and completion.
+**Space** pauses, **n/right arrow** steps, **+/-** changes speed, and **q** quits.
+The final state stays visible; use `on_complete="exit"` to close automatically.
+Yield independent snapshots, and keep the work between yields short enough for
+responsive input. Playback keeps the current snapshot and closes its iterator on
+completion or early quit.
 
-## Demos and documentation
+## Choose the right building block
+
+| You want to… | Start with |
+| --- | --- |
+| Run a built-in effect | `play("fire")` or a named preset |
+| Write a small custom animation | `CallbackEffect(draw, update=update)` |
+| Keep a persistent simulation raster | Subclass `BaseEffect` and implement `update(dt)` |
+| Combine backgrounds, labels, and overlays | `Scene`, `Layer`, and `ImageEffect` |
+| Animate a solver or recorded states | `Playback` and `draw_grid` |
+| Supply your own Screen or clock | `Player` |
+
+Change state in `update(dt)` and read it in `draw(buffer)`. The player owns the
+loop; animations own their state. The [core-concepts guide](https://ethanlchristensen.github.io/bruh.animate/concepts.html)
+walks through this division with complete examples.
+
+## Explore the demos
 
 ```sh
 python -m bruhanimate.demos.snow_demo
+python -m bruhanimate.demos.fire_demo
 python -m bruhanimate.demos.shared_player_demo
 python -m bruhanimate.demos.grid_demo
-python -m bruhanimate.demos.terminal_demo
 ```
 
-All demos expose `run(frames=None, fps=...)`. The terminal demo is a pipe-based
-command console: Escape exits and printable `q` goes to the shell. It does not
-emulate a PTY or interpret terminal escape sequences.
+From a uv source checkout, prefix these commands with `uv run --locked`.
+The grid demo includes a complete BFS solver, animated background, status text,
+and playback controls. Demos expose `run(frames=None, fps=...)` for use from Python.
 
-- [Solver playback and grid drawing](https://github.com/FNBBDevs/bruhanimate/blob/main/docs/SOLVER_PLAYBACK.md)
-- [Player, lifecycle, and composition guide](https://github.com/FNBBDevs/bruhanimate/blob/main/docs/PLAYER.md)
-- [1.0 migration guide](https://github.com/FNBBDevs/bruhanimate/blob/main/docs/MIGRATING_1.0.md)
-- [Architecture decisions](https://github.com/FNBBDevs/bruhanimate/blob/main/docs/DESIGN_PROPOSAL.md)
-- [Roadmap and remaining AoC helpers](https://github.com/FNBBDevs/bruhanimate/blob/main/docs/ROADMAP.md)
+## Documentation
 
-Inspired by [Asciimatics](https://github.com/peterbrittain/asciimatics).
-Licensed under Apache 2.0; see [LICENSE](https://github.com/FNBBDevs/bruhanimate/blob/main/LICENSE).
+| Guide | What it covers |
+| --- | --- |
+| [Getting started](https://ethanlchristensen.github.io/bruh.animate/getting_started.html) | Installation, first animation, and demos |
+| [Core concepts](https://ethanlchristensen.github.io/bruh.animate/concepts.html) | Player, state, buffers, composition, and solver snapshots |
+| [Player and composition](https://ethanlchristensen.github.io/bruh.animate/player.html) | Timing, lifecycle, ownership, and the API |
+| [Solver playback](https://ethanlchristensen.github.io/bruh.animate/playback.html) | Pause, stepping, completion, and bounded solver work |
+| [Migration to 1.0](https://ethanlchristensen.github.io/bruh.animate/migration.html) | Replacing the 0.2.x renderer APIs |
+| [Release process](https://ethanlchristensen.github.io/bruh.animate/releasing.html) | Dev-to-main workflow, versions, tags, and publishing |
 
-## Contributing and releasing
+Resize currently ends playback after cleanup; automatic reflow and recording/export
+remain planned work. The terminal demo is a pipe-based command console, not a PTY
+emulator. See the [roadmap](https://github.com/ethanlchristensen/bruh.animate/blob/main/docs/ROADMAP.md)
+for implementation status and remaining Advent of Code helpers.
 
-Use Python 3.13 and uv 0.13.4. Start with [AGENTS.md](https://github.com/FNBBDevs/bruhanimate/blob/main/AGENTS.md) for architecture
-and contribution conventions, and keep public docstrings/examples synchronized.
+## Development
+
+Use Python 3.13 and uv 0.13.4, pinned in `pyproject.toml`:
 
 ```sh
-python -m pip install uv==0.13.4
+git clone https://github.com/ethanlchristensen/bruh.animate.git
+cd bruh.animate
+git switch dev
 uv sync --locked --group docs
 uv run --locked ruff check .
 uv run --locked pytest
@@ -148,25 +156,32 @@ uv run --locked python scripts/check_examples.py
 uv run --locked --group docs python scripts/build_docs.py
 ```
 
-For an existing standalone uv installation, update with `uv self update 0.13.4`.
+Install uv with `python -m pip install uv==0.13.4`, or update an existing standalone
+installation with `uv self update 0.13.4`. Sync installs this checkout in editable
+mode. Open `docs/build/html/index.html` to preview the documentation.
 
-CI tests Linux, Windows and macOS, verifies source/installed packages, and builds
-Sphinx documentation strictly. The committed uv.lock pins contributor and CI
-environments without pinning consumers to that environment.
-uv handles the development workflow and builds; `poetry-core` remains only as the
-build backend. Publishing uses the PyPA action for Trusted Publishing attestations.
+Read [AGENTS.md](https://github.com/ethanlchristensen/bruh.animate/blob/main/AGENTS.md)
+for architecture, lifecycle rules, and contribution checks. CI tests Linux,
+Windows, and macOS and smoke-tests installed wheel/source distributions.
 
-**Publishing is tag-driven:** merging into main does not publish to PyPI. The
-release workflow validates a matching vMAJOR.MINOR.PATCH tag on a main-branch
-commit and publishes the tested distributions. The publish helper previews by
-default; write/commit/push/PR operations require explicit flags.
+## Releases
+
+**Work on dev → merge into main → wait for green CI → push a matching version tag.**
+
+A merge updates the documentation site. Pushing `vMAJOR.MINOR.PATCH` starts package
+validation and publishing to PyPI, followed by a GitHub release. The preparation
+helper previews by default and never creates a tag:
 
 ```sh
-# Validate the currently prepared 1.0.0 without bumping it:
+# Check the currently prepared version; no version or Git changes:
 uv run --locked python publish.py --check
-# Preview a future release:
-uv run --locked python publish.py 1.1.0
 ```
 
-Read the [release guide](https://github.com/FNBBDevs/bruhanimate/blob/main/docs/RELEASING.md) for tag commands, Trusted Publishing
-or existing-token setup, environment requirements and retry procedures.
+Follow the [complete release checklist](https://github.com/ethanlchristensen/bruh.animate/blob/main/docs/RELEASING.md)
+for version/lockfile agreement, authentication setup, tag commands, and recovery.
+
+## License
+
+[Apache 2.0](https://github.com/ethanlchristensen/bruh.animate/blob/main/LICENSE).
+Created by Ethan Christensen, with inspiration from
+[Asciimatics](https://github.com/peterbrittain/asciimatics).

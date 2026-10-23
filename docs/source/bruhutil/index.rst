@@ -1,41 +1,24 @@
-Bruhutil
-========
+Terminal utilities
+==================
 
-This section contains content related to the bruhutil package.
+These modules support the animation player: terminal cells, Screen access,
+ASCII art, effect names, and errors. Start with :doc:`../concepts` for how they
+fit together, or use :doc:`../grid` for drawing logical boards.
 
-Overview
---------
-The `bruhutil` package is a comprehensive utility library designed to support a wide range of programming tasks. It consists of diverse modules, each offering specialized functionalities that enhance efficiency and ease of development in multimedia and general-purpose programming projects. Whether you need error handling, buffer management, or type utilities, `bruhutil` is equipped to meet your utility needs.
-
-Key Modules and Purposes:
-
-- **bruherrors**  
-
-  Provides robust error handling mechanisms and utilities, ensuring smoother debugging and reliability in application performance.
-
-- **bruhffer**  
-
-  Handles buffer operations, facilitating efficient data handling and manipulation for high-performance applications.
-
-- **bruhimage**  
-
-  Offers image processing utilities, supporting tasks like image manipulation, conversion, and analysis to enhance graphical projects.
-
-- **bruhscreen**  
-
-  Manages screen-related operations, enabling seamless interface interactions and screen management tasks.
-
-- **bruhtypes**  
-
-  Supplies type utilities, offering functions and classes that simplify type management and conversions in coding projects.
-
-- **utils**  
-
-  Contains additional utility functions and helpers, addressing common programming requirements and simplifying complex tasks.
-
+* **Buffer (bruhffer):** a rectangular cell grid, clipped drawing, frame copying,
+  and changed-cell comparison. Dimensions are height/width; drawing uses x/y.
+* **Screen (bruhscreen):** Windows console or curses-based terminal access,
+  keyboard events, frame output, resize detection, and restoration. Most scripts
+  should use play rather than managing a Screen themselves.
+* **ASCII art (bruhimage):** bundled text art and PyFiglet text-to-ASCII helpers.
+  These helpers do not load or process raster image files.
+* **Errors (bruherrors):** exceptions for invalid animation settings and terminal
+  failures, including resize.
+* **Types/constants (bruhtypes, utils):** effect names, directions, and shared
+  character/color tables used by built-in effects.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    bruherrors
    bruhffer

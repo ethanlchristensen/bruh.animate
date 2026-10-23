@@ -64,14 +64,10 @@ html_theme = "furo"
 html_static_path = []
 
 html_logo = "fnbb.png"
-html_title = "Bruhanimate Documentation"
+html_title = f"bruhanimate {version}"
 
 pygments_style = "emacs"
 pygments_dark_style = "github-dark"
-
-html_theme_options = {
-    "announcement": "<em>Important:</em> Bruh is better than cringe 💥",
-}
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
