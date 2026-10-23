@@ -135,7 +135,12 @@ The release workflow performs:
    release notes replace the old shell-based commit-message parser. Existing
    published release assets are left intact.
 
-Actions are pinned to commit SHAs and maintained through Dependabot. The build
+Actions are pinned to commit SHAs. Routine Dependabot version-update PRs are
+paused (`open-pull-requests-limit: 0`) to reduce CI traffic; update Action pins and
+dependency versions manually, refreshing uv.lock with dependency changes.
+Security alerts and security-update PRs are configured separately in GitHub.
+Before re-enabling Python version updates, use a uv-aware updater so lockfiles
+stay synchronized with pyproject.toml. The build
 jobs have read-only repository permissions. Only package upload, GitHub release,
 and Pages deployment receive their specific additional permissions.
 
