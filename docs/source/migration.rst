@@ -35,5 +35,5 @@ restoration; Player borrows its Screen. Shutdown is prompt-free. All demos expos
 demos cycle configurations with one player; quit exits the whole showcase.
 
 See the `complete migration guide
-<https://github.com/FNBBDevs/bruhanimate/blob/main/docs/MIGRATING_1.0.md>`_
+<https://github.com/ethanlchristensen/bruh.animate/blob/main/docs/MIGRATING_1.0.md>`_
 for examples, ownership rules, and included reliability fixes.

@@ -73,8 +73,10 @@ with synchronization can restore an editable project and hide packaging errors.
 
 Update README examples, public docstrings and the relevant guide together.
 `scripts/check_examples.py` executes current Python examples from README,
-`docs/PLAYER.md` and `docs/SOLVER_PLAYBACK.md`; historical migration snippets are
-excluded deliberately. Sphinx builds treat warnings as errors and disable remote
+`docs/PLAYER.md`, `docs/SOLVER_PLAYBACK.md`, and the top-level documentation-site
+RST pages. Keep those examples standalone; historical Markdown migration snippets
+are excluded deliberately. Shell/release commands are never executed by this check.
+Sphinx builds treat warnings as errors and disable remote
 intersphinx inventory requests by default. Use `--online-inventories` explicitly
 when checking those external references.
 
@@ -97,7 +99,8 @@ publishing. The tag must point to a main-branch commit. Release jobs validate th
 exact commit, run CI/docs, and publish the verified artifact in a separate job.
 Build/test jobs have read-only permissions. Pages deploys only from main.
 Keep third-party Actions pinned to full commit SHAs and update their version
-comments; Dependabot maintains these pins. Do not print tokens or interpolate
+comments; routine Dependabot version-update PRs are paused to reduce CI noise.
+Refresh pins manually when updating Actions. Do not print tokens or interpolate
 untrusted workflow input directly into shell programs.
 
 Do not commit, push, create PRs/tags, publish packages or deploy from an agent

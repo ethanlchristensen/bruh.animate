@@ -1,9 +1,11 @@
 version: 2
+# Pause routine version-update PRs. Security updates have a separate limit.
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
     groups:
       github-actions:
         patterns: ['*']
@@ -11,4 +13,4 @@ updates:
     directory: /
     schedule:
       interval: monthly
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 0

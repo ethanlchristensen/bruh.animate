@@ -267,17 +267,19 @@ archive metadata, installed wheel/sdist APIs, and documentation. Upload and
 GitHub release permissions are isolated from build/test jobs. Pages PR builds
 cannot deploy. The local helper previews by default and exposes explicit write,
 commit, push and PR flags. See [RELEASING.md](RELEASING.md) and [AGENTS.md](../AGENTS.md).
-Remote publishing/Pages/credential setup remains to be exercised by the maintainer;
-this work does not publish or push anything.
+Main-branch CI and Pages deployment passed after the initial setup fixes. The
+v1 package upload and publishing credentials remain to be exercised by a tagged
+release; changing source/workflows does not itself publish a package.
 
 Release follow-up verification: all 641 tests pass, including 37 release-tool
-cases. Ruff, uv lock validation, ten executable examples, strict
+cases. Ruff, uv lock validation, current executable examples, strict
 Sphinx, archive validation and Twine checks pass. Both wheel and sdist were
 installed into separate build directories and passed isolated API smoke tests.
 Package metadata now uses the standard project table and points to the verified
-FNBBDevs/bruhanimate remote. Existing historical dist archives were preserved;
+ethanlchristensen/bruh.animate repository and Pages site. Historical dist archives were preserved;
 release gates use clean output directories rather than uploading the entire
-historical dist folder. Remote GitHub/PyPI/Pages runs remain unexecuted locally.
+historical dist folder. The main CI run checked Linux, Windows, and macOS;
+PyPI publication is a separate tag-triggered workflow.
 
 uv now manages contributor/CI environments, standard dependency groups and builds.
 `uv.lock` replaces poetry.lock, with the uv version pinned in pyproject.toml.
@@ -294,3 +296,14 @@ directory absent from Git. CI now uses Ruff and the existing Python workflow
 guards without installing Go. Sphinx relies on theme assets and no longer
 requires that unused directory. Documentation was checked from a copy of tracked
 files to exercise the same directory layout as a fresh checkout.
+
+## Documentation and release onboarding
+
+The README now introduces the v1 building blocks, executable examples, and learning
+paths. The Sphinx site has Getting started, Core concepts, and Release process
+pages before the API reference. Its Python examples join the Markdown examples
+in the headless execution check (18 examples). The release checklist documents
+dev → main → green CI → version tag, all version/lockfile locations, the current
+Trusted Publisher identity, public-install verification, and recovery steps.
+Documentation changes deploy with a main merge; package publication still requires
+an explicitly pushed matching tag.

@@ -49,7 +49,7 @@ Resize raises ScreenResizedError after cleanup; other errors also propagate.
 manage_effect=False borrows an already started instance without start/close.
 
 See the `full player guide
-<https://github.com/FNBBDevs/bruhanimate/blob/main/docs/PLAYER.md>`_
+<https://github.com/ethanlchristensen/bruh.animate/blob/main/docs/PLAYER.md>`_
 for lifecycle, buffer ownership, transparency, and limitations.
 
 on_complete="hold" keeps presenting completed content; "exit" stops after the

@@ -34,7 +34,7 @@ ignoring endless backgrounds. Empty sources present one background frame.
 
 Run ``python -m bruhanimate.demos.grid_demo`` for a pure BFS solver, clipped maze
 drawing, background animation, controls, and final path. See the `full guide
-<https://github.com/FNBBDevs/bruhanimate/blob/main/docs/SOLVER_PLAYBACK.md>`_
+<https://github.com/ethanlchristensen/bruh.animate/blob/main/docs/SOLVER_PLAYBACK.md>`_
 for snapshots, ownership, timing, sampling, and completion details.
 
 .. automodule:: bruhanimate.playback
