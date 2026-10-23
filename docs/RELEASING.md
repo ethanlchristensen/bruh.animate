@@ -171,8 +171,10 @@ Default documentation builds do not fetch external intersphinx inventories, so
 network outages do not make otherwise valid docs fail. Sphinx warnings still fail
 the build. Imports are inert, so the old fake pyaudio modules are unnecessary.
 
-Workflow syntax can be checked with [actionlint](https://github.com/rhysd/actionlint).
-Repository tests also guard tag-only publishing, privileged job separation,
-PR deployment conditions, version edits and archive validation. Local checks do
+Ruff checks Python source. The Python tests also parse workflow YAML and guard
+tag-only publishing, privileged job separation, pinned Actions and PR deployment
+conditions, along with version edits and archive validation. These are focused
+checks of this repository's workflows, not a general Actions expression validator.
+CI does not install Go or compile a workflow linter. Local checks do
 not prove that remote credentials/environment settings are correct; the first
 tagged run verifies those external integrations.

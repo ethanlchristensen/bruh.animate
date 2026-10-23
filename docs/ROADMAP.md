@@ -271,7 +271,7 @@ Remote publishing/Pages/credential setup remains to be exercised by the maintain
 this work does not publish or push anything.
 
 Release follow-up verification: all 641 tests pass, including 37 release-tool
-cases. actionlint, Ruff, uv lock validation, ten executable examples, strict
+cases. Ruff, uv lock validation, ten executable examples, strict
 Sphinx, archive validation and Twine checks pass. Both wheel and sdist were
 installed into separate build directories and passed isolated API smoke tests.
 Package metadata now uses the standard project table and points to the verified
@@ -287,3 +287,10 @@ The uv-built wheel contains the same package files as the previous build, and
 both the wheel and rebuilt sdist passed installed-package checks in a fresh uv
 environment. A temporary version-bump probe confirmed that refreshing uv.lock
 retains dependency pins. The existing local .venv was left intact during testing.
+
+The first remote CI run exposed two setup issues: compiling actionlint triggered
+a failing Go toolchain download, and Sphinx referenced an empty local `_static`
+directory absent from Git. CI now uses Ruff and the existing Python workflow
+guards without installing Go. Sphinx relies on theme assets and no longer
+requires that unused directory. Documentation was checked from a copy of tracked
+files to exercise the same directory layout as a fresh checkout.

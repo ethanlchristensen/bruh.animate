@@ -37,10 +37,6 @@ jobs:
         with:
           version-file: pyproject.toml
           cache-dependency-glob: uv.lock
-      - name: Validate GitHub Actions workflows
-        run: |
-          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-          "$(go env GOPATH)/bin/actionlint" -color
       - run: uv lock --check
       - run: uv sync --locked
       - run: uv run --no-sync ruff check .
