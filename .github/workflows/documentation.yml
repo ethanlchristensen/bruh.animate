@@ -1,76 +1,59 @@
-name: Generate Sphinx Documentation
-
-# Add permissions configuration
-permissions:
-  contents: write
-  pages: write
-  id-token: write
-
-# Environment configuration
-env:
-  PYTHON_VERSION: '3.13'
-
-# Configure GitHub Pages
-concurrency:
-  group: "pages"
-  cancel-in-progress: true
+name: Documentation
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.13'
-
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
-      with:
-        virtualenvs-create: true
-        virtualenvs-in-project: true
-
-    - name: Install dependencies
-      run: |
-        poetry install --with docs
-        # Create empty mock module for pyaudio
-        mkdir -p mock_modules
-        echo "class PyAudio: pass" > mock_modules/pyaudio.py
-        echo "class Stream: pass" >> mock_modules/pyaudio.py
-
-    - name: Build documentation
-      run: |
-        cd docs
-        poetry run sphinx-build -M html source build -v
-      env:
-        PYTHONPATH: ../mock_modules:$PYTHONPATH
-
-    - name: Setup Pages
-      uses: actions/configure-pages@v4
-
-    - name: Upload artifact
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: docs/build/html
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version-file: pyproject.toml
+          cache-dependency-glob: uv.lock
+      - run: uv sync --locked --no-dev --group docs
+      - run: uv run --no-sync python scripts/check_examples.py
+      - run: uv run --no-sync python scripts/build_docs.py
+      - name: Upload documentation for review and deployment
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs/build/html
 
   deploy:
+    # PRs, tags, and reusable release checks build docs but cannot deploy Pages.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    needs: build
-    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     steps:
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - name: Deploy documentation
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

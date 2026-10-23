@@ -14,32 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import os
-
-os.system(" ")
-
-from bruhanimate import EffectRenderer, Screen
+from bruhanimate import play
 from bruhanimate.bruheffect import PerlinSettings
 
 TARGET_FPS = 30
 
 
-def _run(screen):
-    screen.clear()
-    renderer = EffectRenderer(
-        screen,
-        frames=float("inf"),
-        frame_time=1 / TARGET_FPS,
-        effect_type="perlin",
+def run(*, frames=None, fps=TARGET_FPS):
+    return play(
+        "perlin",
+        frames=frames,
+        fps=fps,
+        updates_per_second=30,
         background=" ",
         settings=PerlinSettings(color=True, octaves=4, speed=0.02, threshold=0.3),
     )
-    renderer.run()
-
-
-def run():
-    Screen.show(_run)
 
 
 if __name__ == "__main__":
-    Screen.show(_run)
+    run()

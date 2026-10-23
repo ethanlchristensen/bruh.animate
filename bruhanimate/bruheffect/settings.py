@@ -94,7 +94,9 @@ class PlasmaSettings:
 
 @dataclass
 class RainSettings:
-    intensity: int = 1
+    """Rain density on a 0-999 scale; zero disables new raindrops."""
+
+    intensity: int = 200
     wind_direction: str = "none"
     swells: bool = False
     collision: bool = False

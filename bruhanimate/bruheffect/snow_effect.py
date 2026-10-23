@@ -43,7 +43,7 @@ class SnowEffect(BaseEffect):
         self.image_present = False
         self.collision = s.collision
         self.show_info = s.show_info
-        self.snow_intensity = max(0.01, min(1.0, s.intensity))
+        self.snow_intensity = max(0.0, min(1.0, s.intensity))
         self.wind = max(-1.0, min(1.0, s.wind))
 
         self.flakes = []
@@ -56,12 +56,12 @@ class SnowEffect(BaseEffect):
 
     def set_snow_intensity(self, intensity: float):
         """
-        Sets the probability of a new snowflake spawning per column per frame.
+        Sets the probability of a new snowflake spawning per column per simulation update.
 
         Args:
-            intensity (float): Value between 0.01 and 1.0.
+            intensity (float): Value between 0.0 and 1.0. Zero disables new flakes.
         """
-        if 0.01 <= intensity <= 1.0:
+        if 0.0 <= intensity <= 1.0:
             self.snow_intensity = intensity
 
     def set_wind(self, wind: float):
@@ -203,13 +203,8 @@ class SnowEffect(BaseEffect):
             f"Total Flakes on Ground: {sum(1 for row in self.ground_flakes for v in row if v > 0)}",
         )
 
-    def render_frame(self, frame_number: int):
-        """
-        Renders a single frame of the snow effect.
-
-        Args:
-            frame_number (int): The current frame number.
-        """
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
         for idx in range(self.buffer.width()):
             if random.random() < self.snow_intensity:
                 self.generate_snowflake(idx)

@@ -51,13 +51,8 @@ class OffsetEffect(BaseEffect):
             self.direction = direction
             self.buffer.clear_buffer()
 
-    def render_frame(self, frame_number: int):
-        """
-        Renders a frame of the offset effect.
-
-        Args:
-            frame_number (int): The current frame number.
-        """
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
         for y in range(self.buffer.height()):
             row = (
                 self.background[y % self.background_length :]

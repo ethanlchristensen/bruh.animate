@@ -19,6 +19,9 @@ import random
 import sys
 import threading
 from collections import deque
+from contextlib import ExitStack
+from importlib import import_module
+from importlib.util import find_spec
 
 import numpy as np
 from bruhcolor import bruhcolored as bc
@@ -60,22 +63,10 @@ def _make_bolt(width: int, height: int) -> list[tuple[int, int]]:
 
 
 # Optional dependency detection
-try:
-    import sounddevice as _sd
-
-    _HAS_SD = True
-except ImportError:
-    _HAS_SD = False
-
-if sys.platform == "win32":
-    try:
-        import pyaudiowpatch as _pa_mod
-
-        _HAS_PAW = True
-    except ImportError:
-        _HAS_PAW = False
-else:
-    _HAS_PAW = False
+_sd = None
+_pa_mod = None
+_HAS_SD = find_spec("sounddevice") is not None
+_HAS_PAW = sys.platform == "win32" and find_spec("pyaudiowpatch") is not None
 
 
 def _find_monitor_device():
@@ -156,7 +147,9 @@ class AudioEffect(BaseEffect):
         self._bars = np.zeros(self._num_bars)
         self._wave_history = np.zeros(self._width)
         self._lock = threading.Lock()
-        self._running = True
+        self._running = False
+        self._stop_event = threading.Event()
+        self._thread = None
         self._audio_chunk = np.zeros(_CHUNK, dtype=np.float32)
         self._error: str = None
 
@@ -237,8 +230,22 @@ class AudioEffect(BaseEffect):
             for i in range(_N_BALLS)
         ]
 
+    def start(self):
+        """Start capture explicitly; constructing/configuring an effect is inert."""
+        if self._thread is not None and self._thread.is_alive():
+            return
+        self._error = None
+        self._stop_event.clear()
+        self._running = True
         self._thread = threading.Thread(target=self._capture_loop, daemon=True)
-        self._thread.start()
+        try:
+            self._thread.start()
+        except BaseException:
+            self._running = False
+            self._stop_event.set()
+            self._thread = None
+            raise
+        super().start()
 
     # ------------------------------------------------------------------
     # Runtime setters
@@ -281,79 +288,84 @@ class AudioEffect(BaseEffect):
             self._capture_linux()
 
     def _capture_windows(self):
+        global _pa_mod
         if not _HAS_PAW:
             self._error = (
                 "PyAudioWPatch not installed. Run: pip install bruhanimate[audio]"
             )
             return
         try:
-            pa = _pa_mod.PyAudio()
-            wasapi = pa.get_host_api_info_by_type(_pa_mod.paWASAPI)
-            speakers = pa.get_device_info_by_index(wasapi["defaultOutputDevice"])
-
-            # Loopback device names are "<name> [Loopback]" — use substring match.
-            loopback = None
-            if hasattr(pa, "get_loopback_device_info_generator"):
-                for dev in pa.get_loopback_device_info_generator():
-                    if speakers["name"] in dev["name"]:
-                        loopback = dev
-                        break
-
-            if loopback is None:
-                for i in range(pa.get_device_count()):
-                    dev = pa.get_device_info_by_index(i)
-                    if (
-                        dev.get("isLoopbackDevice", False)
-                        and speakers["name"] in dev["name"]
-                    ):
-                        loopback = dev
-                        break
-
-            if loopback is None:
-                self._error = (
-                    "No WASAPI loopback device found. Is PyAudioWPatch installed?"
-                )
-                return
-
-            channels = max(1, loopback.get("maxInputChannels", 2))
-            rate = int(loopback.get("defaultSampleRate", _SAMPLE_RATE))
-
-            def _cb(in_data, frame_count, time_info, status):
-                audio = np.frombuffer(in_data, dtype=np.float32)
-                if channels > 1:
-                    audio = audio[::channels]
-                chunk = np.zeros(_CHUNK, dtype=np.float32)
-                n = min(len(audio), _CHUNK)
-                chunk[:n] = audio[:n]
-                with self._lock:
-                    self._audio_chunk = chunk
-                return (None, _pa_mod.paContinue)
-
-            stream = pa.open(
-                format=_pa_mod.paFloat32,
-                channels=channels,
-                rate=rate,
-                input=True,
-                frames_per_buffer=_CHUNK,
-                input_device_index=loopback["index"],
-                stream_callback=_cb,
-            )
-            stream.start_stream()
-            while self._running:
-                threading.Event().wait(0.05)
-            stream.stop_stream()
-            stream.close()
-            pa.terminate()
+            if _pa_mod is None:
+                _pa_mod = import_module("pyaudiowpatch")
+            with ExitStack() as cleanup:
+                self._capture_windows_stream(cleanup)
         except Exception as exc:
             self._error = f"Audio error: {exc}"
 
+    def _capture_windows_stream(self, cleanup):
+        pa = _pa_mod.PyAudio()
+        cleanup.callback(pa.terminate)
+        wasapi = pa.get_host_api_info_by_type(_pa_mod.paWASAPI)
+        speakers = pa.get_device_info_by_index(wasapi["defaultOutputDevice"])
+
+        # Loopback device names are "<name> [Loopback]" — use substring match.
+        loopback = None
+        if hasattr(pa, "get_loopback_device_info_generator"):
+            for dev in pa.get_loopback_device_info_generator():
+                if speakers["name"] in dev["name"]:
+                    loopback = dev
+                    break
+
+        if loopback is None:
+            for i in range(pa.get_device_count()):
+                dev = pa.get_device_info_by_index(i)
+                if (
+                    dev.get("isLoopbackDevice", False)
+                    and speakers["name"] in dev["name"]
+                ):
+                    loopback = dev
+                    break
+
+        if loopback is None:
+            self._error = "No WASAPI loopback device found. Is PyAudioWPatch installed?"
+            return
+
+        channels = max(1, loopback.get("maxInputChannels", 2))
+        rate = int(loopback.get("defaultSampleRate", _SAMPLE_RATE))
+
+        def _cb(in_data, frame_count, time_info, status):
+            audio = np.frombuffer(in_data, dtype=np.float32)
+            if channels > 1:
+                audio = audio[::channels]
+            chunk = np.zeros(_CHUNK, dtype=np.float32)
+            n = min(len(audio), _CHUNK)
+            chunk[:n] = audio[:n]
+            with self._lock:
+                self._audio_chunk = chunk
+            return (None, _pa_mod.paContinue)
+
+        stream = pa.open(
+            format=_pa_mod.paFloat32,
+            channels=channels,
+            rate=rate,
+            input=True,
+            frames_per_buffer=_CHUNK,
+            input_device_index=loopback["index"],
+            stream_callback=_cb,
+        )
+        cleanup.callback(stream.close)
+        cleanup.callback(stream.stop_stream)
+        stream.start_stream()
+        while self._running:
+            self._stop_event.wait(0.05)
+
     def _capture_linux(self):
+        global _sd
         if not _HAS_SD:
             self._error = (
                 "sounddevice not installed. Run: pip install bruhanimate[audio]"
             )
             return
-        device = _find_monitor_device()
 
         def _cb(indata, frames, time, status):
             audio = indata[:, 0].copy()
@@ -364,16 +376,23 @@ class AudioEffect(BaseEffect):
                 self._audio_chunk = chunk
 
         try:
+            if _sd is None:
+                _sd = import_module("sounddevice")
+            device = _find_monitor_device()
             kwargs = {"device": device} if device is not None else {}
-            with _sd.InputStream(
+            stream = _sd.InputStream(
                 samplerate=_SAMPLE_RATE,
                 channels=1,
                 callback=_cb,
                 blocksize=_CHUNK,
                 **kwargs,
-            ):
+            )
+            with ExitStack() as cleanup:
+                cleanup.callback(stream.close)
+                cleanup.callback(stream.stop)
+                stream.start()
                 while self._running:
-                    _sd.sleep(50)
+                    self._stop_event.wait(0.05)
         except Exception as exc:
             self._error = f"Audio error: {exc}"
 
@@ -425,7 +444,8 @@ class AudioEffect(BaseEffect):
     # Rendering
     # ------------------------------------------------------------------
 
-    def render_frame(self, frame_number: int):
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
         # Stateful modes scroll their own buffer; everything else gets cleared.
         if self.mode not in _STATEFUL_MODES:
             self.buffer.clear_buffer(val=self.background)
@@ -579,7 +599,7 @@ class AudioEffect(BaseEffect):
         cx = self._width // 2
         cy = self._height // 2
         # Terminal chars are ~2x taller than wide, compensate so the shape looks circular
-        max_r = min(cx, cy * 2)
+        max_r = max(1, min(cx, cy * 2))
         n = len(bars)
 
         for row in range(self._height):
@@ -1531,6 +1551,21 @@ class AudioEffect(BaseEffect):
             for x, y in zip(xs, ys):
                 self.buffer.put_char(int(x), int(y), ch)
 
-    def stop(self):
-        """Stop the background audio capture thread."""
+    def stop(self, timeout: float = 2.0):
+        """Stop capture and wait at most timeout seconds for resource cleanup.
+
+        A backend stuck during device initialization is reported, rather than
+        silently leaving a live worker behind. A later close can retry joining.
+        """
         self._running = False
+        self._stop_event.set()
+        if self._thread is not None:
+            if self._thread is threading.current_thread():
+                return
+            self._thread.join(timeout=timeout)
+            if self._thread.is_alive():
+                raise RuntimeError(
+                    "Audio capture worker did not stop before the timeout"
+                )
+            self._thread = None
+        super().stop()

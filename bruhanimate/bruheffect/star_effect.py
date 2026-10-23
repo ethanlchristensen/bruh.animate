@@ -65,13 +65,8 @@ class StarEffect(NoiseEffect):
         self.stars = f"{background * (100 // self.background_length)}.*+"
         self.stars_length = len(self.stars)
 
-    def render_frame(self, frame_number: int):
-        """
-        Renders a frame of the star effect.
-
-        Args:
-            frame_number (int): The current frame number.
-        """
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
         for y in range(self.buffer.height()):
             for x in range(self.buffer.width()):
                 if random.random() < self.intensity:

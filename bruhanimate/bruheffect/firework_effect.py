@@ -176,7 +176,8 @@ class Firework:
         self.y = height - 1
         self.previous_x = self.x
         self.previous_y = self.y
-        self.peak = random.randint(5, self.height // 2)
+        max_peak = self.height // 2
+        self.peak = random.randint(min(5, max_peak), max_peak)
         self.exploded = False
         self.particles = []
         self.allowed_fire_work_types = allowed_firework_types or valid_firework_types
@@ -1768,7 +1769,7 @@ class FireworkEffect(BaseEffect):
 
         # Render frames in your animation loop
         for frame in range(100):
-            fireworks.render_frame(frame)
+            fireworks.update(1 / 30)
             buffer.display()
 
     Advanced Example::
@@ -1820,7 +1821,6 @@ class FireworkEffect(BaseEffect):
         self.fireworks: list[Firework] = []
         self.firework_rate: float = s.rate
         self.allowed_firework_types = valid_firework_types
-        self.second_effect = None
 
     def set_firework_type(self, firework_type: FireworkType):
         """
@@ -1852,60 +1852,29 @@ class FireworkEffect(BaseEffect):
             self.firework_type = firework_type
 
     def set_firework_color_enabled(self, color_enabled: bool):
-        """
-        Set how frequently new fireworks should be launched.
+        """Enable or disable ANSI colors for newly launched fireworks.
 
         Args:
-            firework_rate (float): Probability (0.0 to 1.0) of launching a new firework
-                each frame. Higher values mean more frequent launches.
-
-        Example::
-
-            # Sparse fireworks
-            fireworks.set_firework_rate(0.05)  # 5% chance per frame
-
-            # Dense show
-            fireworks.set_firework_rate(0.3)   # 30% chance per frame
-
-        Warning:
-            - Values >0.3 may cause performance issues on slower systems
-            - Values >0.5 may create very dense/cluttered displays
-            - Values ≤0.0 will prevent any fireworks from launching
-
-        Note:
-            The actual visual density will depend on your frame rate. Adjust this
-            value based on how frequently you call render_frame().
+            color_enabled (bool): Whether new fireworks use the selected palette.
         """
         self.color_enabled = color_enabled
 
     def set_firework_color_type(self, firework_color_type: FireworkColorType):
-        """
-        Enable or disable colored fireworks.
+        """Select a supported palette for newly launched colored fireworks.
 
         Args:
-            color_enabled (bool): Whether fireworks should be rendered in color.
-
-        Example::
-
-            # Enable colorful display
-            fireworks.set_firework_color_enabled(True)
-            fireworks.set_firework_color_type("rainbow")
-
-        Warning:
-            - Colors require a terminal that supports ANSI color codes
-            - Some terminals may display colors differently
-            - Windows command prompt has limited color support
-
-        Note:
-            Even when enabled, colors will only be visible if a color type
-            is set via set_firework_color_type().
+            firework_color_type (FireworkColorType): Palette name, for example
+                "rainbow" or "twotone". Unknown names leave the palette unchanged.
         """
         if firework_color_type in valid_firework_color_types:
             self.firework_color_type = firework_color_type
 
     def set_firework_rate(self, firework_rate: float):
-        """
-        Function to set the rate at which fireworks should be launched
+        """Set launch probability per simulation update, independent of draw FPS.
+
+        Args:
+            firework_rate (float): A value in (0, 1]. Other values are ignored.
+                FireworkSettings(rate=0) can disable launches at construction.
         """
         if firework_rate > 0.0 and firework_rate <= 1.0:
             self.firework_rate = firework_rate
@@ -1946,14 +1915,8 @@ class FireworkEffect(BaseEffect):
         if len(allowed_firework_types) > 0:
             self.allowed_firework_types = allowed_firework_types
 
-    def set_second_effect(self, second_effect: any):
-        if isinstance(second_effect, BaseEffect):
-            self.second_effect = second_effect
-
-    def render_frame(self, frame_number):
-        """
-        Renders the background to the screen
-        """
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
 
         if random.random() < self.firework_rate:
             self.fireworks.append(
@@ -1966,13 +1929,6 @@ class FireworkEffect(BaseEffect):
                     allowed_firework_types=self.allowed_firework_types,
                 )
             )
-
-        if self.second_effect is not None:
-            try:
-                self.second_effect.render_frame(frame_number=frame_number)
-                self.buffer.sync_with(self.second_effect.buffer)
-            except Exception:
-                pass
 
         for firework in self.fireworks:
             firework.update()

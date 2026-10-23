@@ -73,7 +73,8 @@ class PerlinEffect(BaseEffect):
         self._xs = (X / self._w * 4 * math.pi).astype(np.float32)
         self._ys = (Y / self._h * 4 * math.pi).astype(np.float32)
 
-    def render_frame(self, frame_number: int):
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
         self.buffer.clear_buffer(val=self.background)
 
         self._t += self.speed

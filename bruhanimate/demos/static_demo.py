@@ -14,30 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import os
-
-os.system(" ")
-
-from bruhanimate import EffectRenderer, Screen
+from bruhanimate import play
 
 TARGET_FPS = 30
 
 
-def _run(screen):
-    screen.clear()
-    renderer = EffectRenderer(
-        screen,
-        frames=float("inf"),
-        frame_time=1.0,
-        effect_type="static",
+def run(*, frames=None, fps=TARGET_FPS):
+    return play(
+        "static",
+        frames=frames,
+        fps=fps,
+        updates_per_second=30,
         background="This is a static background! ",
     )
-    renderer.run()
-
-
-def run():
-    Screen.show(_run)
 
 
 if __name__ == "__main__":
-    Screen.show(_run)
+    run()

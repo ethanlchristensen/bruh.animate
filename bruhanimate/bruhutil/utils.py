@@ -23,23 +23,9 @@ def sleep(s):
     time.sleep(s)
 
 
-VALID_EFFECTS = [
-    "static",
-    "offset",
-    "noise",
-    "stars",
-    "plasma",
-    "gol",
-    "rain",
-    "matrix",
-    "drawlines",
-    "snow",
-    "twinkle",
-    "audio",
-    "chat",
-    "firework",
-    "fire",
-]
+from .bruhtypes import valid_effect_types
+
+VALID_EFFECTS = sorted(valid_effect_types)
 
 HORIZONTAL = "horizontal"
 

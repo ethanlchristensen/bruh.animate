@@ -20,10 +20,21 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import os
 import signal
 import sys
+import time
+from contextlib import ExitStack
 
 ENABLE_EXTENDED_FLAGS = 0x0080
 ENABLE_QUICK_EDIT_MODE = 0x0040
 ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+
+
+def _wait_for_enter(screen):
+    """Explicit legacy end prompt, using the same normalized input as playback."""
+    while True:
+        if screen.get_event() in (3, 10, 13, -1, 27):
+            return
+        time.sleep(0.05)
+
 
 if sys.platform == "win32":
     import pywintypes
@@ -36,6 +47,8 @@ if sys.platform == "win32":
         """
         Class for creating and managing a terminal screen in a WINDOWS OS terminal
         """
+
+        wait_for_enter = _wait_for_enter
 
         # Standard extended key codes.
         KEY_ESCAPE = -1
@@ -164,9 +177,16 @@ if sys.platform == "win32":
             :param restore: Boolean flag to restore the original console buffer and input mode
                             when closing the screen. Default is True.
             """
-            if restore:
-                self._old_out.SetConsoleActiveScreenBuffer()
-                self._stdin.SetConsoleMode(self._old_in)
+            if getattr(self, "_closed", False):
+                return
+            self._closed = True
+            with ExitStack() as cleanup:
+                cleanup.callback(self._old_out.Close)
+                cleanup.callback(self._stdout.Close)
+                cleanup.callback(self._stdin.Close)
+                if restore:
+                    cleanup.callback(self._stdin.SetConsoleMode, self._old_in)
+                    cleanup.callback(self._old_out.SetConsoleActiveScreenBuffer)
 
         def print_at(self, text, x, y, width):
             """
@@ -355,58 +375,62 @@ if sys.platform == "win32":
 
             :return: An initialized Screen object with the configured console screen buffer.
             """
-            old_out = win32console.PyConsoleScreenBufferType(
-                win32file.CreateFile(
-                    "CONOUT$",
-                    win32file.GENERIC_READ | win32file.GENERIC_WRITE,
-                    win32file.FILE_SHARE_WRITE,
-                    None,
-                    win32file.OPEN_ALWAYS,
-                    0,
-                    None,
+            with ExitStack() as cleanup:
+                old_out = win32console.PyConsoleScreenBufferType(
+                    win32file.CreateFile(
+                        "CONOUT$",
+                        win32file.GENERIC_READ | win32file.GENERIC_WRITE,
+                        win32file.FILE_SHARE_WRITE,
+                        None,
+                        win32file.OPEN_ALWAYS,
+                        0,
+                        None,
+                    )
                 )
-            )
-            try:
-                info = old_out.GetConsoleScreenBufferInfo()
-            except pywintypes.error:
-                info = None
-            win_out = win32console.CreateConsoleScreenBuffer()
-            if info:
-                win_out.SetConsoleScreenBufferSize(info["Size"])
-            else:
-                win_out.SetStdHandle(win32console.STD_OUTPUT_HANDLE)
-            win_out.SetConsoleActiveScreenBuffer()
-            win_in = win32console.PyConsoleScreenBufferType(
-                win32file.CreateFile(
-                    "CONIN$",
-                    win32file.GENERIC_READ | win32file.GENERIC_WRITE,
-                    win32file.FILE_SHARE_READ,
-                    None,
-                    win32file.OPEN_ALWAYS,
-                    0,
-                    None,
+                cleanup.callback(old_out.Close)
+                try:
+                    info = old_out.GetConsoleScreenBufferInfo()
+                except pywintypes.error:
+                    info = None
+                win_out = win32console.CreateConsoleScreenBuffer()
+                cleanup.callback(win_out.Close)
+                if info:
+                    win_out.SetConsoleScreenBufferSize(info["Size"])
+                cleanup.callback(old_out.SetConsoleActiveScreenBuffer)
+                win_out.SetConsoleActiveScreenBuffer()
+                win_in = win32console.PyConsoleScreenBufferType(
+                    win32file.CreateFile(
+                        "CONIN$",
+                        win32file.GENERIC_READ | win32file.GENERIC_WRITE,
+                        win32file.FILE_SHARE_READ,
+                        None,
+                        win32file.OPEN_ALWAYS,
+                        0,
+                        None,
+                    )
                 )
-            )
-            win_in.SetStdHandle(win32console.STD_INPUT_HANDLE)
-            # Hide Cursor
-            win_out.SetConsoleCursorInfo(1, 0)
-            # Disable scroll and enable ANSI/VT sequence processing
-            out_mode = win_out.GetConsoleMode()
-            out_mode &= ~win32console.ENABLE_WRAP_AT_EOL_OUTPUT
-            out_mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING
-            try:
-                win_out.SetConsoleMode(out_mode)
-            except pywintypes.error:
-                # Older Windows without VT support — strip the VT flag and fall back
-                win_out.SetConsoleMode(out_mode & ~ENABLE_VIRTUAL_TERMINAL_PROCESSING)
-            in_mode = win_in.GetConsoleMode()
-            new_mode = in_mode | win32console.ENABLE_MOUSE_INPUT | ENABLE_EXTENDED_FLAGS
-            new_mode &= ~ENABLE_QUICK_EDIT_MODE
-            # new_mode &= ~win32console.ENABLE_PROCESSED_INPUT
-            win_in.SetConsoleMode(new_mode)
-
-            screen = Screen(win_out, win_in, old_out, in_mode)
-            return screen
+                cleanup.callback(win_in.Close)
+                win_out.SetConsoleCursorInfo(1, 0)
+                out_mode = win_out.GetConsoleMode()
+                out_mode &= ~win32console.ENABLE_WRAP_AT_EOL_OUTPUT
+                out_mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING
+                try:
+                    win_out.SetConsoleMode(out_mode)
+                except pywintypes.error:
+                    win_out.SetConsoleMode(
+                        out_mode & ~ENABLE_VIRTUAL_TERMINAL_PROCESSING
+                    )
+                in_mode = win_in.GetConsoleMode()
+                cleanup.callback(win_in.SetConsoleMode, in_mode)
+                new_mode = (
+                    in_mode | win32console.ENABLE_MOUSE_INPUT | ENABLE_EXTENDED_FLAGS
+                )
+                new_mode &= ~ENABLE_QUICK_EDIT_MODE
+                new_mode &= ~win32console.ENABLE_PROCESSED_INPUT
+                win_in.SetConsoleMode(new_mode)
+                screen = cls(win_out, win_in, old_out, in_mode)
+                cleanup.pop_all()
+                return screen
 
         @classmethod
         def show(cls, function, args=None):
@@ -420,7 +444,7 @@ if sys.platform == "win32":
             :param function: A callable to be executed within the context of the screen.
             :param args: An optional list of arguments to be passed to the function.
             """
-            screen = Screen.open()
+            screen = cls.open()
             try:
                 if args:
                     return function(screen, *args)
@@ -433,6 +457,8 @@ else:
     import curses
 
     class Screen:
+        wait_for_enter = _wait_for_enter
+
         KEY_ESCAPE = -1
         KEY_F1 = -2
         KEY_F2 = -3
@@ -553,12 +579,17 @@ else:
             return self._re_sized
 
         def close(self, restore=True):
-            self.signal_state.restore()
-            if restore:
-                self.screen.keypad(0)
-                curses.echo()
-                curses.nocbreak()
-                curses.endwin()
+            if getattr(self, "_closed", False):
+                return
+            self._closed = True
+            with ExitStack() as cleanup:
+                if restore:
+                    cleanup.callback(curses.endwin)
+                    cleanup.callback(curses.nocbreak)
+                    cleanup.callback(curses.echo)
+                    cleanup.callback(self.screen.keypad, 0)
+                if hasattr(self, "signal_state"):
+                    cleanup.callback(self.signal_state.restore)
 
         def clear(self):
             try:
@@ -572,10 +603,16 @@ else:
         @classmethod
         def open(cls):
             stdcrs = curses.initscr()
-            curses.noecho()
-            curses.cbreak()
-            stdcrs.keypad(1)
-            screen = Screen(stdcrs)
+            screen = cls.__new__(cls)
+            screen.screen = stdcrs
+            try:
+                curses.noecho()
+                curses.cbreak()
+                stdcrs.keypad(1)
+                screen.__init__(stdcrs)
+            except BaseException:
+                screen.close()
+                raise
             return screen
 
         @staticmethod
@@ -622,8 +659,7 @@ else:
 
         @classmethod
         def show(cls, function, args=None):
-            os.system("clear")
-            screen = Screen.open()
+            screen = cls.open()
             try:
                 if args:
                     return function(screen, *args)
@@ -631,8 +667,6 @@ else:
                     return function(screen)
             finally:
                 screen.close()
-                input()
-                os.system("clear")
 
     class SignalState(object):
         def __init__(self):
@@ -646,6 +680,7 @@ else:
             signal.signal(signalnum, handler)
 
         def restore(self):
-            for signalnum, handler in self._old_signal_states:
-                signal.signal(signalnum, handler)
-            self._old_signal_states = []
+            with ExitStack() as cleanup:
+                for signalnum, handler in self._old_signal_states:
+                    cleanup.callback(signal.signal, signalnum, handler)
+                self._old_signal_states = []

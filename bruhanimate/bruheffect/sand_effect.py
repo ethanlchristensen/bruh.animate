@@ -61,7 +61,8 @@ class SandEffect(BaseEffect):
         """Set the per-column probability of spawning a new particle each frame (0–1)."""
         self.spawn_rate = max(0.0, min(1.0, rate))
 
-    def render_frame(self, frame_number: int):
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
         self.buffer.clear_buffer(val=self.background)
 
         # Drain bottom row so the simulation never stalls

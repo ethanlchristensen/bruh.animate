@@ -14,35 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from bruhanimate.bruhrenderer import TerminalRenderer
-from bruhanimate.bruhutil import Screen
-from bruhanimate.bruhutil.utils import INF
+"""A pipe-based console over snow. Escape quits; q remains shell input."""
+
+from bruhanimate import Buffer, Layer, Player, Scene, Screen, SnowEffect, TerminalEffect
 
 
-def demo(screen, frames, time, effect, background, transparent):
-    """
-    Runs the terminal demo.
-    """
-    renderer = TerminalRenderer(
-        screen,
-        frames,
-        time,
-        effect,
-        background,
-        transparent,
-    )
+def run(*, frames=None, fps=30):
+    def show(screen):
+        terminal = TerminalEffect(Buffer(screen.height, screen.width))
+        scene = Scene(
+            SnowEffect(Buffer(screen.height, screen.width), " "),
+            Layer(terminal, transparent=True),
+        )
+        return Player(
+            screen,
+            scene,
+            frames=frames,
+            fps=fps,
+            updates_per_second=30,
+            event_handler=terminal.handle_event,
+        ).run()
 
-    renderer.update_smart_transparent(True)
-    renderer.run()
-
-
-def main():
-    """
-    Main function to run the TerminalRenderer demo.
-    """
-    # Using 'snow' as a nice, unintrusive background effect for a terminal
-    Screen.show(demo, args=(INF, 0.05, "snow", " ", True))
+    return Screen.show(show)
 
 
 if __name__ == "__main__":
-    main()
+    run()

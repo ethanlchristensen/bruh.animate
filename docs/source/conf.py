@@ -12,28 +12,16 @@ import sys
 # Get the absolute path to the root directory (two levels up from conf.py)
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
-# Add both the root directory AND the specific package directory
+# Import only from the repository root; optional audio backends are lazy.
 sys.path.insert(0, root_dir)
-sys.path.insert(0, os.path.join(root_dir, "bruhanimate"))
-
-from unittest.mock import MagicMock
-
-
-class Mock(MagicMock):
-    @classmethod
-    def __getattr__(cls, name):
-        return MagicMock()
-
-
-MOCK_MODULES = ["pyaudio"]
-sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 project = "bruhanimate"
 copyright = "2024, Ethan Christensen"
 author = "Ethan Christensen"
 
-version = "1.0"
-release = "1.0"
+from bruhanimate import __version__
+
+version = release = __version__
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

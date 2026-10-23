@@ -586,7 +586,6 @@ EffectType = Literal[
     "firework",
     "fire",
     "julia",
-    "water",
     "boids",
     "sand",
     "diffusion",
@@ -610,7 +609,6 @@ valid_effect_types = {
     "firework",
     "fire",
     "julia",
-    "water",
     "boids",
     "sand",
     "diffusion",
@@ -618,8 +616,6 @@ valid_effect_types = {
     "voronoi",
     "perlin",
 }
-PanRendererDirection = Literal["horizontal", "vertical"]
-valid_pan_renderer_directions = {"horizontal", "vertical"}
 FireworkType = Literal[
     "circular",
     "ring",

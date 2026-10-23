@@ -16,6 +16,7 @@ limitations under the License.
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Type
 
@@ -161,7 +162,7 @@ class EffectRegistry:
                     f"Preset '{preset}' not found for '{name}'. "
                     f"Available: {sorted(entry.presets)}"
                 )
-            settings = entry.presets[preset]
+            settings = deepcopy(entry.presets[preset])
 
         if settings is not None and entry.settings_cls is not None:
             return entry.effect_cls(buffer, background, settings=settings)
@@ -219,7 +220,6 @@ def _populate():
     from .static_effect import StaticEffect
     from .twinkle_effect import TwinkleEffect
     from .voronoi_effect import VoronoiEffect
-    from .water_effect import WaterEffect
 
     effect_registry.register(
         "static",
@@ -257,7 +257,7 @@ def _populate():
         description="Blinking star field.",
         presets={
             "greyscale": StarSettings(color_type="GREYSCALE"),
-            "color": StarSettings(color_type="COLOR"),
+            "color": StarSettings(color_type="RAINBOW"),
         },
     )
     effect_registry.register(
@@ -280,7 +280,7 @@ def _populate():
         presets={
             "plain": GameOfLifeSettings(decay=False, color=False),
             "decay": GameOfLifeSettings(decay=True, color=False),
-            "color": GameOfLifeSettings(decay=True, color=True, color_type="COLOR"),
+            "color": GameOfLifeSettings(decay=True, color=True, color_type="RAINBOW"),
         },
     )
     effect_registry.register(
@@ -289,17 +289,17 @@ def _populate():
         settings_cls=RainSettings,
         description="Falling rain with wind direction and collision.",
         presets={
-            "drizzle": RainSettings(intensity=1, wind_direction="none"),
-            "storm": RainSettings(intensity=3, wind_direction="east", swells=True),
+            "drizzle": RainSettings(intensity=100, wind_direction="none"),
+            "storm": RainSettings(intensity=600, wind_direction="east", swells=True),
             "thunderstorm": RainSettings(
-                intensity=3,
+                intensity=700,
                 wind_direction="east",
                 swells=True,
                 lightning=True,
                 lightning_chance=0.03,
             ),
             "monsoon": RainSettings(
-                intensity=5,
+                intensity=900,
                 wind_direction="east",
                 swells=True,
                 collision=True,
@@ -384,12 +384,7 @@ def _populate():
         settings_cls=None,
         description="Animated Julia-set fractal.",
     )
-    effect_registry.register(
-        "water",
-        WaterEffect,
-        settings_cls=None,
-        description="Rippling water surface simulation.",
-    )
+
     effect_registry.register(
         "boids",
         BoidsEffect,
