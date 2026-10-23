@@ -92,7 +92,7 @@ from .player import (
 )
 from .scene import ImageEffect, Layer, Scene
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __valid_demos__ = [
     "audio_demo",
     "automaton_demo",
