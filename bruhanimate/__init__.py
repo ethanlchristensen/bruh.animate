@@ -5,6 +5,7 @@ for layered content and lazy solver snapshots. Demo modules import on demand.
 """
 
 from importlib import import_module
+from typing import TYPE_CHECKING
 
 from . import effects
 from .bruheffect import (
@@ -82,18 +83,49 @@ from .bruhutil import (
 from .capture import Frame, capture, record
 from .effects import EffectName
 from .grid import GridViewport, draw_grid
+from .keyboard import (
+    BindingHint,
+    EventResult,
+    FocusDirection,
+    FocusGroup,
+    FocusTarget,
+    KeyBinding,
+    KeyBindings,
+    KeyName,
+)
+from .layout import Column, Fixed, Flex, Row, Slot, Spacer
+from .panel import Panel
 from .playback import Playback
 from .player import (
     Animation,
     CallbackEffect,
     FramePresenter,
     Player,
+    ResizableAnimation,
     play,
 )
-from .scene import ImageEffect, Layer, Scene
+from .resize import Resizable, ResizePolicy
+from .scene import ImageEffect, Layer, Scene, TimedOverlay
+from .views import LogView, LogWrap, ScrollView
+from .widgets import (
+    Label,
+    StatusBar,
+    TextAlign,
+    TextOverflow,
+    TextSource,
+    TextStyle,
+    VerticalAlign,
+)
 
-__version__ = "1.1.0"
+if TYPE_CHECKING:
+    from .demos import beam_demo, dashboard_demo, tv_demo, windows_demo
+
+__version__ = "1.2.0"
 __valid_demos__ = [
+    "dashboard_demo",
+    "windows_demo",
+    "tv_demo",
+    "beam_demo",
     "audio_demo",
     "automaton_demo",
     "boids_demo",
@@ -136,6 +168,31 @@ def __dir__():
 
 
 __all__ = [
+    "ScrollView",
+    "LogView",
+    "LogWrap",
+    "BindingHint", "EventResult", "FocusDirection", "FocusGroup", "FocusTarget",
+    "KeyBinding", "KeyBindings", "KeyName",
+    "Column",
+    "Fixed",
+    "Flex",
+    "Row",
+    "Slot",
+    "Spacer",
+    "Label",
+    "StatusBar",
+    "TextAlign",
+    "TextOverflow",
+    "TextSource",
+    "TextStyle",
+    "VerticalAlign",
+    "dashboard_demo",
+    "Panel",
+    "Resizable",
+    "ResizableAnimation",
+    "ResizePolicy",
+    "windows_demo",
+    "tv_demo",
     "effects",
     "EffectName",
     "Playback",
@@ -150,6 +207,7 @@ __all__ = [
     "Player",
     "Scene",
     "Layer",
+    "TimedOverlay",
     "ImageEffect",
     "play",
     "Screen",
@@ -246,5 +304,6 @@ __all__ = [
     "VALID_DIRECTIONS",
     "WIND_DIRECTIONS",
     "__version__",
+    "beam_demo",
     "__valid_demos__",
 ]

@@ -107,8 +107,9 @@ endless backgrounds are ignored. A scene containing only endless content reports
 None and never triggers automatic completion. Nested scenes follow the same rule.
 
 Use a normal status drawing callback for completion messages. `frames` remains
-a presentation limit independent of solver completion. Duration limits and
-automatic source restart remain future work.
+a presentation limit independent of solver completion. `duration` limits Player
+wall-clock seconds after startup (virtual seconds in headless capture).
+Automatic source restart remains future work.
 
 ## Grid viewport
 
@@ -152,3 +153,29 @@ cursor escapes are rejected. Ambiguous-width characters such as box drawing
 assume a one-cell terminal; full grapheme/terminal-width handling is deferred.
 Grid drawing does not fill gaps between spaced cells or clear the destination.
 Player and Scene provide fresh drawing buffers for composition.
+
+
+## Terminal resize
+
+Use `play(..., on_resize="resize")` with a layout containing your existing
+Playback instance. Layout reflow retains the iterator, current snapshot, pause
+state, speed, queued manual steps and solver clock. Resizing alone never calls
+`next()`. A started solver continues receiving updates when its slot is hidden;
+a paused solver stays paused. Do not rebuild or re-own Playback in a resize
+callback. `dashboard_demo` demonstrates shrinking and growing a paused solver.
+
+The dashboard now uses `FocusGroup` to route controls: Tab/Shift+Tab selects the
+solver, signal, or activity log panel, and Space pauses the solver or signal.
+Solver n queues a step and +/- changes speed; signal r remixes plasma. It binds the public
+Playback methods without advancing the iterator during input or drawing. The
+status bar reads help from the focused bindings. Hidden layout slots lose focus
+without resetting Playback state. See the [keyboard guide](source/keyboard.rst).
+
+The dashboard wraps Playback in a `ScrollView` with a fixed full-board canvas.
+Arrows/Page Up/Down/Home/End pan it without advancing the iterator. Its `LogView`
+records progress after updates, plus control actions, and retains 200 logical
+lines. When the log has focus, those keys scroll history instead. Upward scrolling
+suspends automatic scrolling; End resumes following new messages. The original
+standalone `Playback.handle_event` still uses Right to step; the dashboard uses
+Right for horizontal panning. See [scrollable views](source/views.rst).
+See the [resize guide](source/resize.rst) for fitting panels and custom views.

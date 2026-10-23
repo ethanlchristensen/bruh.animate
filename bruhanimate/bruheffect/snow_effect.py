@@ -17,6 +17,7 @@ limitations under the License.
 from bruhcolor import bruhcolored
 
 from ..bruhutil import FLAKE_WEIGHT_CHARS, SNOWFLAKE_COLORS, SNOWFLAKE_TYPES, Buffer
+from ..resize import _size
 from .base_effect import BaseEffect
 from .settings import SnowSettings, validated_settings
 
@@ -53,6 +54,62 @@ class SnowEffect(BaseEffect):
         self.image_flakes = [None for _ in range(self.buffer.width())]
         self.smart_transparent = False
         self.total_ground_flakes = 0
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Adapt the simulation to (width, height) without advancing a tick.
+
+        Floor-connected piles keep their depth relative to the bottom and their
+        column. Other settled snow and explicit collision surfaces keep absolute
+        coordinates. Falling flakes keep position, drift and delay when visible.
+        Cropped snow, and flakes covered by a relocated pile, are discarded;
+        growing later does not restore them. Newly exposed columns start empty.
+        Random streams, settings and lifecycle are unchanged. The new raster is
+        painted immediately, including before the next scheduled update.
+        """
+        _size(size)
+        width, height = size
+        old_width, old_height = self.buffer.width(), self.buffer.height()
+        if size == (old_width, old_height):
+            super().resize(size)
+            return
+
+        ground = [[0] * width for _ in range(height)]
+        for x in range(min(width, old_width)):
+            # Only the contiguous stack resting on the floor follows the floor.
+            # Snow on a configured image must not move along with that stack.
+            floor_top = old_height
+            while floor_top > 0 and self.ground_flakes[floor_top - 1][x] > 0:
+                floor_top -= 1
+            for y in range(old_height):
+                target_y = y + height - old_height if y >= floor_top else y
+                if 0 <= target_y < height:
+                    ground[target_y][x] += self.ground_flakes[y][x]
+
+        flakes = [
+            flake
+            for flake in self.flakes
+            if 0 <= flake["x"] < width
+            and 0 <= flake["y"] < height
+            and ground[flake["y"]][flake["x"]] == 0
+        ]
+        raster = Buffer(height, width).clear_buffer(val=self.background)
+        weights = sorted(FLAKE_WEIGHT_CHARS.items(), reverse=True)
+        for y, row in enumerate(ground):
+            for x, count in enumerate(row):
+                for weight, character in weights:
+                    if count >= weight:
+                        raster.put_char(x, y, character)
+                        break
+        for flake in flakes:
+            raster.put_char(flake["x"], flake["y"], flake["colored"].colored)
+
+        self.buffer = raster
+        self.ground_flakes = ground
+        self.flakes = flakes
+        self.image_flakes = self.image_flakes[:width] + [None] * max(0, width - old_width)
+        if self.show_info:
+            self.add_info()
+        super().resize(size)
 
     def set_snow_intensity(self, intensity: float):
         """

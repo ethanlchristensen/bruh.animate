@@ -103,7 +103,8 @@ spaces transparent too. Colored background spaces still paint.
 ImageEffect centers by default. Supply x/y for an explicit position, or velocity
 in columns/second and rows/second for movement. With multiple raster-based built-in
 effects, allocate a distinct private Buffer for each; do not share their mutable
-simulation raster. Scene currently gives all children the same update rate.
+simulation raster. Layer can select an independent update rate and clip to a
+rectangle; TimedOverlay limits a child's visibility. See :doc:`composition`.
 
 4. Let the solver produce snapshots
 -----------------------------------

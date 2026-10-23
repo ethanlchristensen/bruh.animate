@@ -20,6 +20,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 
 from ..bruhutil.bruhffer import Buffer
+from ..resize import _size
 
 
 class BaseEffect(ABC):
@@ -50,6 +51,7 @@ class BaseEffect(ABC):
         self.buffer = buffer
         self.background = background
         self.background_length = len(background)
+        self._viewport: tuple[int, int] | None = None
         self._started = False
 
     def start(self) -> None:
@@ -72,11 +74,27 @@ class BaseEffect(ABC):
     def update(self, dt: float) -> None:
         """Advance simulation by one tick; dt is the tick duration in seconds."""
 
+    def resize(self, size: tuple[int, int]) -> None:
+        """Change the drawing viewport, retaining the original simulation raster.
+
+        Shrinking clips from the bottom/right; growing reveals the original
+        raster again. Cells beyond it remain transparent to the owner. Random
+        streams, resource handles and simulation coordinates are unchanged.
+        Subclasses can override this typed hook to adapt simulation arrays and
+        repaint the private raster at the current tick, then call super().resize.
+        Built-in adapters use this contract; draw must still never advance time.
+        """
+        _size(size)
+        self._viewport = size
+
     def draw(self, buffer: Buffer) -> None:
         """Copy the latest raster without advancing or sharing mutable cells."""
-        buffer._validate_dimensions(self.buffer)
-        for y, row in enumerate(self.buffer.buffer):
-            target = buffer.buffer[y]
-            buffer.buffer[y] = [
-                target[x] if cell is None else str(cell) for x, cell in enumerate(row)
-            ]
+        if self._viewport is None:
+            buffer._validate_dimensions(self.buffer)
+        elif (buffer.width(), buffer.height()) != self._viewport:
+            raise ValueError("Drawing buffer must match the resized viewport")
+        for y in range(min(buffer.height(), self.buffer.height())):
+            for x in range(min(buffer.width(), self.buffer.width())):
+                cell = self.buffer.buffer[y][x]
+                if cell is not None:
+                    buffer.buffer[y][x] = str(cell)

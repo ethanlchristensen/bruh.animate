@@ -19,6 +19,7 @@ import math
 from bruhcolor import bruhcolored
 
 from ..bruhutil import GREY_SCALES, PLASMA_COLORS, Buffer
+from ..resize import _size
 from .base_effect import BaseEffect
 from .settings import PlasmaSettings, validated_settings
 
@@ -60,7 +61,7 @@ class PlasmaEffect(BaseEffect):
                 ]
             else:
                 self._colored_cache = [
-                    bruhcolored(" ", on_color=self.colors[i]).colored
+                    f"\x1b[48;5;{self.colors[i]}m \x1b[0m"
                     for i in range(len(self.scale))
                 ]
         else:
@@ -164,6 +165,22 @@ class PlasmaEffect(BaseEffect):
     def update(self, dt: float) -> None:
         """Advance one simulation tick; dt is measured in seconds."""
         self.t += 1
+        self._paint_frame()
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Fill a new (width, height) at the current phase, without random draws.
+
+        Frequency values, palette, settings and animation time are retained.
+        Wave anchors follow the new dimensions. No update/start/close is called.
+        """
+        _size(size)
+        if size != (self.buffer.width(), self.buffer.height()):
+            self.buffer = Buffer(size[1], size[0])
+            self._paint_frame()
+        super().resize(size)
+
+    def _paint_frame(self) -> None:
+        """Recompute the private raster from the current phase and geometry."""
         if self._colored_cache is None:
             self._build_cache()
 

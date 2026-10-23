@@ -49,6 +49,89 @@ def main() -> None:
         "height": 2,
     }
     buffer = Buffer(1, 2)
+    assert "beam_demo" in package.__valid_demos__
+    panels = []
+    panel = package.Panel(
+        effect_factory=lambda local: package.SnowEffect(
+            local, " ", SnowSettings(seed=42)
+        ),
+        size=(4, 2),
+        position=(1, 1),
+        title="Snow",
+        updates_per_second=15,
+    )
+    assert (
+        package.capture(panel, on_frame=panels.append, frames=3, width=8, height=6) == 3
+    )
+    assert panel.outer_size == (6, 4)
+    assert panels[-1].cells[1][1] == "+"
+    layout = package.Column(
+        package.Slot(package.Label("Ready", align="center")),
+        package.Slot(package.StatusBar(right="q"), size=package.Fixed(1)),
+    )
+    dashboard = []
+    assert (
+        package.capture(
+            effect_factory=layout.build,
+            on_frame=dashboard.append,
+            frames=1,
+            width=7,
+            height=2,
+        )
+        == 1
+    )
+    assert dashboard[0].cells[0] == tuple(" Ready ")
+    assert dashboard[0].cells[1][-1] == "q"
+    assert "dashboard_demo" in package.__valid_demos__
+    target = package.FocusTarget(
+        "test",
+        package.KeyBindings(
+            package.KeyBinding("space", lambda: None, description="pause")
+        ),
+    )
+    focus = package.FocusGroup(target)
+    panel = package.Panel(package.Label("ready"), size=(5, 1), focus=target)
+    panel.start()
+    try:
+        assert focus.focused is target and focus.help_text() == "space pause"
+        assert focus.dispatch(32) is package.EventResult.HANDLED
+        assert not focus.handle_event(32) and focus.handle_event(ord("q"))
+    finally:
+        panel.close()
+    assert focus.focused is None
+    log = package.LogView(size=(4, 1), max_lines=2)
+    log.append("one\ntwo\nlast")
+    scroller = package.ScrollView(log, size=(4, 1), content_size=(4, 1))
+    scroller.start()
+    try:
+        frame = Buffer(1, 4)
+        scroller.draw(frame)
+        assert frame.buffer[0] == list("last")
+        assert log.lines == ("two", "last")
+        log.bindings.handle_event(package.Screen.KEY_HOME)
+        assert not log.follow_tail
+    finally:
+        scroller.close()
+    resizable = package.Column(
+        package.Slot(package.Label("Ready", align="right"))
+    ).build(Buffer(1, 5))
+    assert isinstance(resizable, package.Resizable)
+    resizable.start()
+    try:
+        resizable.resize((8, 2))
+        resized = Buffer(2, 8)
+        resizable.draw(resized)
+        assert resized.buffer[0] == list("   Ready")
+    finally:
+        resizable.close()
+    overlay = package.TimedOverlay(package.ImageEffect("x"), duration=0)
+    scene = package.Scene(
+        package.Layer(overlay, region=(0, 0, 1, 1), updates_per_second=15)
+    )
+    assert (
+        package.capture(scene, on_frame=lambda frame: None, frames=1, width=2, height=1)
+        == 1
+    )
     draw_grid(buffer, ["AB"])
     assert buffer.buffer == [["A", "B"]]
     playback = Playback([1, 2], lambda state, target: None)

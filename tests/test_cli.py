@@ -65,6 +65,7 @@ def test_cli_preserves_preset_values_when_overriding(monkeypatch):
         updates_per_second=30,
         frames=100,
         duration=2.5,
+        on_resize="raise",
     )
     assert effect_registry.presets("snow")["light"].wind == 0
 
@@ -191,3 +192,12 @@ def test_cli_discovers_runtime_registry_extensions(monkeypatch, capsys):
     cli.main(["play", "custom", "--preset", "fast", "--duration", "0"])
     assert run.call_args.kwargs["settings"].speed == 3
     constructor.assert_not_called()
+
+
+def test_cli_resize_policy(monkeypatch):
+    run = Mock()
+    monkeypatch.setattr(cli, "play", run)
+    assert cli.main(["play", "snow", "--on-resize", "resize"]) == 0
+    assert run.call_args.kwargs["on_resize"] == "resize"
+    with pytest.raises(SystemExit):
+        cli.main(["play", "snow", "--on-resize", "restart"])

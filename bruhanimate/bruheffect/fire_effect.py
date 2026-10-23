@@ -21,6 +21,7 @@ import numpy as np
 from bruhcolor import bruhcolored as bc
 
 from ..bruhutil.bruhffer import Buffer
+from ..resize import _size
 from .base_effect import BaseEffect
 from .settings import FireSettings, validated_settings
 
@@ -72,6 +73,46 @@ class FireEffect(BaseEffect):
 
         self.set_fire_wind(s.wind_direction, s.wind_strength)
         self._tick = 0
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Resize (width, height), keeping heat and visible flames bottom-aligned.
+
+        Retain left-hand columns, heat-spot lifetimes, wind, swell phase and both
+        random streams. Cropped heat/spots are discarded; new cells start cold.
+        New columns use neutral fuel variation until its normal random refresh.
+        Copy the last raster instead of rerolling its per-cell color flicker.
+        No simulation tick or lifecycle operation runs during this notification.
+        """
+        _size(size)
+        width, height = size
+        old_width, old_height = self.buffer.width(), self.buffer.height()
+        if size == (old_width, old_height):
+            super().resize(size)
+            return
+        columns, rows = min(width, old_width), min(height, old_height)
+        previous = np.zeros((height, width), dtype=self.previous_data.dtype)
+        current = np.zeros((height, width), dtype=self.current_data.dtype)
+        raster = Buffer(height, width).clear_buffer(val=self.background)
+        if rows and columns:
+            previous[-rows:, :columns] = self.previous_data[-rows:, :columns]
+            current[-rows:, :columns] = self.current_data[-rows:, :columns]
+            for row in range(rows):
+                raster.buffer[height - rows + row][:columns] = self.buffer.buffer[
+                    old_height - rows + row
+                ][:columns]
+        variations = np.ones(width, dtype=self._random_variations.dtype)
+        variations[:columns] = self._random_variations[:columns]
+        spots = [
+            {**spot, "y": spot["y"] + height - old_height}
+            for spot in self.heat_spots
+            if 0 <= spot["x"] < width and 0 <= spot["y"] + height - old_height < height
+        ]
+        self.previous_data, self.current_data = previous, current
+        self.height_cooling_map = np.linspace(0.98, 0.92, height)[:, np.newaxis]
+        self._random_variations = variations
+        self.heat_spots = spots
+        self.buffer = raster
+        super().resize(size)
 
     def set_fire_ascii_chars(self, ascii_chars: str):
         """

@@ -17,6 +17,7 @@ limitations under the License.
 from bruhcolor import bruhcolored
 
 from ..bruhutil import WIND_DIRECTIONS, Buffer
+from ..resize import _size
 from .base_effect import BaseEffect
 from .settings import RainSettings, validated_settings
 
@@ -62,6 +63,43 @@ class RainEffect(BaseEffect):
         self._bolts = []  # list of (cells, frames_remaining)
         self._set_rain()
         self._tick = 0
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Adapt to (width, height), preserving visible rain and lightning age.
+
+        Drops, image splashes and bolt cells keep absolute coordinates; visible
+        bottom-row splashes move to the new floor. Cropped cells are discarded.
+        New space starts empty and receives rain during normal updates. Explicit
+        collision masks remain at their configured coordinates and dimensions.
+        Intensity, wind, swell direction, tick and random streams are unchanged.
+        """
+        _size(size)
+        width, height = size
+        old_width, old_height = self.buffer.width(), self.buffer.height()
+        if size == (old_width, old_height):
+            super().resize(size)
+            return
+        columns = min(width, old_width)
+        raster = Buffer(height, width).clear_buffer(val=self.background)
+        for y in range(min(height, old_height)):
+            raster.buffer[y][:columns] = self.buffer.buffer[y][:columns]
+        if old_height:
+            for x in range(columns):
+                if self.buffer.get_char(x, old_height - 1) == "v":
+                    raster.put_char(x, old_height - 1, self.background)
+                    raster.put_char(x, height - 1, "v")
+        bolts = []
+        for cells, remaining in self._bolts:
+            visible = [
+                (x, y, char)
+                for x, y, char in cells
+                if 0 <= x < width and 0 <= y < height
+            ]
+            if visible:
+                bolts.append([visible, remaining])
+        self.buffer = raster
+        self._bolts = bolts
+        super().resize(size)
 
     def set_multiplier(self, val: int):
         """
@@ -247,7 +285,7 @@ class RainEffect(BaseEffect):
                             if self.image_present and self.image_buffer:
                                 if 0 <= y + 1 < self.buffer.height():
                                     if (
-                                        self.image_buffer.buffer[y + 1][x]
+                                        self.image_buffer.get_char(x, y + 1)
                                         not in [" ", None]
                                         and self.buffer.get_char(x, y)
                                         in self.wind_mappings[self.wind_direction][2]

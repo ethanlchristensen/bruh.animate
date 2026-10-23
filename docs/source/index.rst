@@ -34,6 +34,7 @@ Start here
    getting_started
    discovery
    capture
+   composition
    concepts
 
 .. toctree::
@@ -41,6 +42,11 @@ Start here
    :caption: Guides and API
 
    player
+   panels
+   layouts
+   keyboard
+   views
+   resize
    playback
    grid
    migration
