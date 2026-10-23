@@ -40,9 +40,9 @@ from .settings import (
 from .snow_effect import SnowEffect
 from .star_effect import StarEffect
 from .static_effect import StaticEffect
+from .terminal_effect import TerminalEffect
 from .twinkle_effect import TWINKLE_SPEC, TwinkleEffect
 from .voronoi_effect import VoronoiEffect
-from .water_effect import WaterEffect
 
 __all__ = [
     "AudioEffect",
@@ -93,5 +93,5 @@ __all__ = [
     "TwinkleSettings",
     "VoronoiEffect",
     "VoronoiSettings",
-    "WaterEffect",
+    "TerminalEffect",
 ]

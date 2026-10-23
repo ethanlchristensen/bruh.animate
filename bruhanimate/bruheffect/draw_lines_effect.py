@@ -92,14 +92,9 @@ class DrawLinesEffect(BaseEffect):
         """
         self.lines.append(Line(start_point, end_point))
 
-    def render_frame(self, frame_number: int):
-        """
-        Renders all lines on frame 0.
-
-        Args:
-            frame_number (int): The current frame number.
-        """
-        if frame_number == 0 and len(self.lines) > 0:
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
+        if len(self.lines) > 0:
             for y in range(self.buffer.height()):
                 self.buffer.put_at(0, y, self.background * self.buffer.width())
             for line in self.lines:

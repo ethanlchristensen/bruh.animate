@@ -3,7 +3,7 @@ from bruhanimate.bruhutil.bruhffer import Buffer
 
 
 class DummyEffect(BaseEffect):
-    def render_frame(self, frame_number):
+    def update(self, dt):
         pass
 
 

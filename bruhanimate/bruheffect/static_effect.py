@@ -33,13 +33,8 @@ class StaticEffect(BaseEffect):
         """
         super(StaticEffect, self).__init__(buffer, background)
 
-    def render_frame(self, frame_number: int):
-        """
-        Renders the background to the screen.
-
-        Args:
-            frame_number (int): The current frame number. Not used in this effect, but required by the base class.
-        """
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
         for y in range(self.buffer.height()):
             self.buffer.put_at(
                 0,

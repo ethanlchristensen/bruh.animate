@@ -14,63 +14,45 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import os
-import time
+"""Cycle through automaton configurations using one Player. q quits."""
 
-os.system(" ")
-
-from bruhanimate import EffectRenderer, Screen
+from bruhanimate import Buffer, effect_registry, play
 from bruhanimate.bruheffect import AutomatonSettings
+
+from ._showcase import Showcase
 
 TARGET_FPS = 30
 PHASE_FRAMES = 200
 
 
-def _run(screen):
-    screen.clear()
-
+def build(buffer):
     phases = [
         ("Rule 30   — chaotic", 30),
         ("Rule 90   — Sierpinski triangle", 90),
         ("Rule 110  — Turing-complete", 110),
         ("Rule 184  — traffic flow", 184),
     ]
-
-    renderer = EffectRenderer(
-        screen,
-        frames=PHASE_FRAMES,
-        frame_time=1 / TARGET_FPS,
-        effect_type="automaton",
-        background=" ",
-        settings=AutomatonSettings(color=True, rule=phases[0][1]),
+    return Showcase(
+        [
+            (
+                label,
+                effect_registry.create(
+                    "automaton",
+                    buffer if i == 0 else Buffer(buffer.height(), buffer.width()),
+                    " ",
+                    settings=AutomatonSettings(color=True, rule=config),
+                ),
+            )
+            for i, (label, config) in enumerate(phases)
+        ],
+        duration=PHASE_FRAMES / 30,
+        title="Automaton",
     )
 
-    try:
-        for label, rule in phases:
-            screen.clear()
-            renderer.effect.set_rule(rule)
-            for frame in range(PHASE_FRAMES):
-                t0 = time.perf_counter()
-                renderer.render_to_back_buffer(frame)
-                screen.print_at(
-                    f"  Automaton: {label}  (Ctrl+C to skip)".ljust(screen.width),
-                    0,
-                    0,
-                    screen.width,
-                )
-                renderer.swap_buffers()
-                renderer.present_frame()
-                elapsed = time.perf_counter() - t0
-                remaining = 1 / TARGET_FPS - elapsed
-                if remaining > 0:
-                    time.sleep(remaining)
-    except KeyboardInterrupt:
-        pass
 
-
-def run():
-    Screen.show(_run)
+def run(*, frames=None, fps=TARGET_FPS):
+    return play(effect_factory=build, frames=frames, fps=fps, updates_per_second=30)
 
 
 if __name__ == "__main__":
-    Screen.show(_run)
+    run()

@@ -73,7 +73,8 @@ class AutomatonEffect(BaseEffect):
         self._row[self._w // 2] = 1
         self.buffer.clear_buffer(val=self.background)
 
-    def render_frame(self, frame_number: int):
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
         # Compute next generation
         left = np.roll(self._row, 1)
         right = np.roll(self._row, -1)

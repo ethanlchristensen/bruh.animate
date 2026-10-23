@@ -14,40 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import os
+"""Build content from buffer dimensions; Player handles playback."""
 
-os.system(" ")
-
-from bruhanimate import EffectRenderer, Screen
-from bruhanimate.bruheffect import DrawLinesSettings
-
-TARGET_FPS = 30
+from bruhanimate import DrawLinesEffect, DrawLinesSettings, play
 
 
-def _run(screen):
-    screen.clear()
-    renderer = EffectRenderer(
-        screen,
-        frames=float("inf"),
-        frame_time=1 / TARGET_FPS,
-        effect_type="drawlines",
-        background=" ",
-        settings=DrawLinesSettings(thin=False),
-    )
-    renderer.effect.add_line((15, 15), (screen.width - 15, 15))
-    renderer.effect.add_line(
-        (screen.width - 15, 15), (screen.width // 2, screen.height - 5)
-    )
-    renderer.effect.add_line((screen.width // 2, screen.height - 5), (15, 15))
-    renderer.effect.add_line(
-        (screen.width // 2, 5), (screen.width // 2, screen.height - 5)
-    )
-    renderer.run()
+def build(buffer):
+    effect = DrawLinesEffect(buffer, " ", DrawLinesSettings(thin=False))
+    w, h = buffer.width(), buffer.height()
+    left, right = w // 5, w - 1 - w // 5
+    top, bottom = h // 5, h - 1 - h // 5
+    effect.add_line((left, top), (right, top))
+    effect.add_line((right, top), (w // 2, bottom))
+    effect.add_line((w // 2, bottom), (left, top))
+    effect.add_line((w // 2, 0), (w // 2, bottom))
+    return effect
 
 
-def run():
-    Screen.show(_run)
+def run(*, frames=None, fps=30):
+    return play(effect_factory=build, frames=frames, fps=fps, updates_per_second=30)
 
 
 if __name__ == "__main__":
-    Screen.show(_run)
+    run()

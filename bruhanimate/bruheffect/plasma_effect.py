@@ -162,13 +162,8 @@ class PlasmaEffect(BaseEffect):
         """
         self.vals = [random.randint(1, 50) for _ in range(4)]
 
-    def render_frame(self, frame_number: int):
-        """
-        Renders a single frame of the plasma effect.
-
-        Args:
-            frame_number (int): The current frame number.
-        """
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
         self.t += 1
         if self._colored_cache is None:
             self._build_cache()

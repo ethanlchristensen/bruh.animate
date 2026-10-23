@@ -86,7 +86,8 @@ class DiffusionEffect(BaseEffect):
         if k is not None:
             self.k = float(k)
 
-    def render_frame(self, frame_number: int):
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
         self.buffer.clear_buffer(val=self.background)
 
         for _ in range(self.steps_per_frame):

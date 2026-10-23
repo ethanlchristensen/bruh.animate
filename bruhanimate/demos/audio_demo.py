@@ -14,21 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import os
-import time
+"""Cycle through audio configurations using one Player. q quits."""
 
-os.system(" ")
-
-from bruhanimate import EffectRenderer, Screen
+from bruhanimate import Buffer, effect_registry, play
 from bruhanimate.bruheffect import AudioSettings
+
+from ._showcase import Showcase
 
 TARGET_FPS = 30
 PHASE_FRAMES = 300
 
 
-def _run(screen):
-    screen.clear()
-
+def build(buffer):
     phases = [
         ("Bars", AudioSettings(mode="bars", color=True, smoothing=0.5)),
         ("Mirror", AudioSettings(mode="mirror", color=True, smoothing=0.5)),
@@ -77,47 +74,27 @@ def _run(screen):
         ),
         ("Weave", AudioSettings(mode="weave", color=True, smoothing=0.2)),
     ]
-
-    renderer = EffectRenderer(
-        screen,
-        frames=PHASE_FRAMES,
-        frame_time=1 / TARGET_FPS,
-        effect_type="audio",
-        background=" ",
-        settings=phases[0][1],
+    return Showcase(
+        [
+            (
+                label,
+                effect_registry.create(
+                    "audio",
+                    buffer if i == 0 else Buffer(buffer.height(), buffer.width()),
+                    " ",
+                    settings=config,
+                ),
+            )
+            for i, (label, config) in enumerate(phases)
+        ],
+        duration=PHASE_FRAMES / 30,
+        title="Audio",
     )
 
-    try:
-        for label, settings in phases:
-            screen.clear()
-            renderer.effect.set_mode(settings.mode)
-            renderer.effect.set_color(settings.color)
-            renderer.effect.set_smoothing(settings.smoothing)
-            renderer.effect.set_sensitivity(settings.sensitivity)
-            for frame in range(PHASE_FRAMES):
-                t0 = time.perf_counter()
-                renderer.render_to_back_buffer(frame)
-                screen.print_at(
-                    f"  Audio: {label}  (Ctrl+C to skip)".ljust(screen.width),
-                    0,
-                    0,
-                    screen.width,
-                )
-                renderer.swap_buffers()
-                renderer.present_frame()
-                elapsed = time.perf_counter() - t0
-                remaining = 1 / TARGET_FPS - elapsed
-                if remaining > 0:
-                    time.sleep(remaining)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        renderer.effect.stop()
 
-
-def run():
-    Screen.show(_run)
+def run(*, frames=None, fps=TARGET_FPS):
+    return play(effect_factory=build, frames=frames, fps=fps, updates_per_second=30)
 
 
 if __name__ == "__main__":
-    Screen.show(_run)
+    run()

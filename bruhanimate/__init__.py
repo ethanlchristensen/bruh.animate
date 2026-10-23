@@ -1,3 +1,11 @@
+"""Composable terminal animations with explicit simulation and resource lifecycles.
+
+Use play for an owned terminal, Player for a borrowed Screen, and Scene/Playback
+for layered content and lazy solver snapshots. Demo modules import on demand.
+"""
+
+from importlib import import_module
+
 from .bruheffect import (
     TWINKLE_SPEC,
     AudioEffect,
@@ -42,20 +50,12 @@ from .bruheffect import (
     StarEffect,
     StarSettings,
     StaticEffect,
+    TerminalEffect,
     TwinkleEffect,
     TwinkleSettings,
     VoronoiEffect,
     VoronoiSettings,
-    WaterEffect,
     effect_registry,
-)
-from .bruhrenderer import (
-    BackgroundColorRenderer,
-    BaseRenderer,
-    CenterRenderer,
-    EffectRenderer,
-    FocusRenderer,
-    PanRenderer,
 )
 from .bruhutil import (
     FLAKE_WEIGHT_CHARS,
@@ -78,32 +78,18 @@ from .bruhutil import (
     get_image,
     text_to_image,
 )
-from .demos import (
-    audio_demo,
-    automaton_demo,
-    boids_demo,
-    diffusion_demo,
-    fire_demo,
-    firework_demo,
-    gol_demo,
-    holiday,
-    julia_demo,
-    line_demo,
-    matrix_demo,
-    noise_demo,
-    offset_demo,
-    perlin_demo,
-    plasma_demo,
-    rain_demo,
-    sand_demo,
-    snow_demo,
-    stars_demo,
-    static_demo,
-    twinkle_demo,
-    voronoi_demo,
+from .grid import GridViewport, draw_grid
+from .playback import Playback
+from .player import (
+    Animation,
+    CallbackEffect,
+    FramePresenter,
+    Player,
+    play,
 )
+from .scene import ImageEffect, Layer, Scene
 
-__version__ = "0.2.106"
+__version__ = "1.0.0"
 __valid_demos__ = [
     "audio_demo",
     "automaton_demo",
@@ -112,6 +98,7 @@ __valid_demos__ = [
     "fire_demo",
     "firework_demo",
     "gol_demo",
+    "grid_demo",
     "holiday",
     "julia_demo",
     "line_demo",
@@ -122,14 +109,41 @@ __valid_demos__ = [
     "plasma_demo",
     "rain_demo",
     "sand_demo",
+    "shared_player_demo",
     "snow_demo",
     "stars_demo",
     "static_demo",
+    "terminal_demo",
     "twinkle_demo",
     "voronoi_demo",
 ]
 
+
+def __getattr__(name):
+    """Preserve ``from bruhanimate import snow_demo`` without eager demo imports."""
+    if name in __valid_demos__:
+        module = import_module(f".demos.{name}", __name__)
+        globals()[name] = module
+        return module
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return sorted(set(globals()) | set(__valid_demos__))
+
+
 __all__ = [
+    "Playback",
+    "GridViewport",
+    "draw_grid",
+    "Animation",
+    "CallbackEffect",
+    "FramePresenter",
+    "Player",
+    "Scene",
+    "Layer",
+    "ImageEffect",
+    "play",
     "Screen",
     "Buffer",
     "AudioEffect",
@@ -144,18 +158,13 @@ __all__ = [
     "EffectEntry",
     "EffectRegistry",
     "effect_registry",
-    "BaseRenderer",
-    "BackgroundColorRenderer",
-    "CenterRenderer",
     "DrawLinesEffect",
     "DrawLinesSettings",
-    "EffectRenderer",
     "FireEffect",
     "FireSettings",
     "Firework",
     "FireworkEffect",
     "FireworkSettings",
-    "FocusRenderer",
     "GameOfLifeEffect",
     "GameOfLifeSettings",
     "JuliaEffect",
@@ -166,7 +175,6 @@ __all__ = [
     "NoiseSettings",
     "OffsetEffect",
     "OffsetSettings",
-    "PanRenderer",
     "Particle",
     "PerlinEffect",
     "PerlinSettings",
@@ -186,7 +194,7 @@ __all__ = [
     "TwinkleSettings",
     "VoronoiEffect",
     "VoronoiSettings",
-    "WaterEffect",
+    "TerminalEffect",
     "bruhimage",
     "audio_demo",
     "automaton_demo",
@@ -195,6 +203,7 @@ __all__ = [
     "fire_demo",
     "firework_demo",
     "gol_demo",
+    "grid_demo",
     "holiday",
     "julia_demo",
     "line_demo",
@@ -205,9 +214,11 @@ __all__ = [
     "plasma_demo",
     "rain_demo",
     "sand_demo",
+    "shared_player_demo",
     "snow_demo",
     "stars_demo",
     "static_demo",
+    "terminal_demo",
     "twinkle_demo",
     "voronoi_demo",
     "get_image",

@@ -1,66 +1,62 @@
 [build-system]
-requires = [ "poetry-core",]
+requires = ["poetry-core>=2.2,<3"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.poetry]
+[project]
 name = "bruhanimate"
-version = "0.2.106"
-description = "ASCII Termnial Animation Package"
-authors = [ "ethanlchristensen <ethanlchristensen@outlook.com>",]
-license = "Apache License"
+version = "1.0.0"
+description = "Composable ASCII terminal animations and solver playback"
+authors = [{name = "Ethan Christensen", email = "ethanlchristensen@outlook.com"}]
+license = "Apache-2.0"
 readme = "README.md"
-homepage = "https://github.com/ethanlchristensen/bruhanimate"
-repository = "https://github.com/ethanlchristensen/bruhanimate"
-documentation = "https://ethanlchristensen.github.io/bruhanimate/"
-keywords = [ "python", "terminal", "terminal-animation", "bruhanimate",]
+requires-python = ">=3.13,<4.0"
+keywords = ["python", "terminal", "terminal-animation", "bruhanimate"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: Unix",
     "Operating System :: Microsoft :: Windows",
 ]
+dependencies = [
+    "future>=1.0.0,<2.0.0",
+    "bruhcolor>=0.0.64,<0.0.65",
+    "pyfiglet>=1.0.4,<2.0.0",
+    "numpy>=2.3.4,<3.0.0",
+    "pywin32>=311,<312; sys_platform == 'win32'",
+]
 
-[tool.poetry.urls]
-"Bug Tracker" = "https://github.com/ethanlchristensen/bruhanimate/issues"
+[project.optional-dependencies]
+audio = [
+    "PyAudioWPatch>=0.2.12; sys_platform == 'win32'",
+    "sounddevice>=0.4; sys_platform != 'win32'",
+]
 
-[tool.poetry.dependencies]
-python = "^3.13"
-future = "^1.0.0"
-bruhcolor = "^0.0.64"
-pyfiglet = "^1.0.4"
-numpy = "^2.3.4"
+[project.urls]
+Homepage = "https://github.com/FNBBDevs/bruhanimate"
+Repository = "https://github.com/FNBBDevs/bruhanimate"
+Documentation = "https://fnbbdevs.github.io/bruhanimate/"
+"Bug Tracker" = "https://github.com/FNBBDevs/bruhanimate/issues"
 
-[tool.poetry.dependencies.pywin32]
-version = "^311"
-markers = "sys_platform == 'win32'"
+[dependency-groups]
+docs = ["sphinx==8.1.3", "furo==2024.8.6"]
+dev = [
+    "ruff>=0.14.7,<0.15",
+    "pytest>=8.3.4,<9",
+    "pytest-cov>=6.0.0,<7",
+    "twine>=6.2.0,<7",
+    "PyYAML>=6.0.3,<7",
+]
 
-[tool.poetry.dependencies.PyAudioWPatch]
-version = ">=0.2.12"
-markers = "sys_platform == 'win32'"
-optional = true
-
-[tool.poetry.dependencies.sounddevice]
-version = ">=0.4"
-markers = "sys_platform != 'win32'"
-optional = true
-
-[tool.poetry.extras]
-audio = ["PyAudioWPatch", "sounddevice"]
-
-[tool.poetry.group.docs.dependencies]
-sphinx = "8.1.3"
-furo = "2024.8.6"
-[tool.poetry.group.dev.dependencies]
-ruff = "^0.14.7"
-pytest = "^8.3.4"
-pytest-cov = "^6.0.0"
+[tool.uv]
+required-version = "==0.13.4"
 
 
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py313"
 exclude = [
     ".venv",
     "build",
@@ -74,5 +70,6 @@ ignore = ["E501", "E402"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 python_files = ["test_*.py"]
 addopts = "--cov=bruhanimate --cov-report=term-missing"

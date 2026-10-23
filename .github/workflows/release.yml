@@ -2,111 +2,122 @@ name: Release
 
 on:
   push:
-    branches: [main]
-    paths:
-      - pyproject.toml
+    tags: ['v*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to validate and publish (vMAJOR.MINOR.PATCH)
+        type: string
+        required: true
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
-  release:
+  verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.commit.outputs.sha }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
-
-      - name: Extract version from pyproject.toml
-        id: version
-        run: |
-          VERSION=$(grep '^version' pyproject.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Check if tag already exists
-        id: tag_check
-        run: |
-          if git ls-remote --tags origin "refs/tags/v${{ steps.version.outputs.version }}" | grep -q .; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Generate changelog
-        if: steps.tag_check.outputs.exists == 'false'
-        id: changelog
-        run: |
-          PREV_TAG=$(git tag --sort=-version:refname | grep -E '^v' | head -1)
-
-          if [ -z "$PREV_TAG" ]; then
-            LOG=$(git log --pretty=format:"- %s (%h)" HEAD)
-          else
-            LOG=$(git log --pretty=format:"- %s (%h)" "${PREV_TAG}..HEAD")
-          fi
-
-          FEAT=$(echo "$LOG"   | grep -E '^\- feat'   || true)
-          FIX=$(echo "$LOG"    | grep -E '^\- fix'    || true)
-          UPDATE=$(echo "$LOG" | grep -E '^\- update' || true)
-          DOCS=$(echo "$LOG"   | grep -E '^\- docs'   || true)
-          CHORE=$(echo "$LOG"  | grep -E '^\- chore'  || true)
-          OTHER=$(echo "$LOG"  | grep -vE '^\- (feat|fix|update|docs|chore)' || true)
-
-          BODY=""
-          [ -n "$FEAT"   ] && BODY="${BODY}### Features\n${FEAT}\n\n"
-          [ -n "$FIX"    ] && BODY="${BODY}### Bug Fixes\n${FIX}\n\n"
-          [ -n "$UPDATE" ] && BODY="${BODY}### Updates\n${UPDATE}\n\n"
-          [ -n "$DOCS"   ] && BODY="${BODY}### Documentation\n${DOCS}\n\n"
-          [ -n "$CHORE"  ] && BODY="${BODY}### Chores\n${CHORE}\n\n"
-          [ -n "$OTHER"  ] && BODY="${BODY}### Other\n${OTHER}\n\n"
-
-          {
-            echo 'changelog<<EOF'
-            printf "%b" "$BODY"
-            echo 'EOF'
-          } >> $GITHUB_OUTPUT
-
-      - name: Setup Python
-        if: steps.tag_check.outputs.exists == 'false'
-        uses: actions/setup-python@v5
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.13'
+      - name: Verify tag and source version
+        id: version
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: python scripts/release_check.py --tag "$RELEASE_TAG" --github-output
+      - name: Require a main-branch commit
+        id: commit
+        run: |
+          git merge-base --is-ancestor HEAD origin/main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Install Poetry
-        if: steps.tag_check.outputs.exists == 'false'
-        uses: snok/install-poetry@v1
+  # Reuse exactly the same checks as PRs, checking out the verified release tag.
+  checks:
+    needs: verify
+    uses: ./.github/workflows/test.yml
+    with:
+      ref: ${{ needs.verify.outputs.commit }}
+
+  docs:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-
-      - name: Install dependencies
-        run: poetry install --no-interaction
-
-      - name: Run linting
-        run: poetry run ruff check .
-
-      - name: Run tests
-        run: poetry run pytest
-
-      - name: Build package
-        if: steps.tag_check.outputs.exists == 'false'
-        run: poetry build
-
-      - name: Publish to PyPI
-        if: steps.tag_check.outputs.exists == 'false'
-        uses: pypa/gh-action-pypi-publish@release/v1
+          ref: ${{ needs.verify.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version-file: pyproject.toml
+          cache-dependency-glob: uv.lock
+      - run: uv sync --locked --no-dev --group docs
+      - run: uv run --no-sync python scripts/check_examples.py
+      - run: uv run --no-sync python scripts/build_docs.py
+
+  publish:
+    needs: [verify, checks, docs]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/bruhanimate/${{ needs.verify.outputs.version }}/
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: python-dist
+          path: dist
+      - name: Publish verified distributions
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          # Empty password selects Trusted Publishing; an existing token still works.
           password: ${{ secrets.PYPI_TOKEN }}
+          attestations: ${{ secrets.PYPI_TOKEN == '' }}
+          skip-existing: true
+          print-hash: true
 
-      - name: Create GitHub release
-        if: steps.tag_check.outputs.exists == 'false'
-        uses: softprops/action-gh-release@v2
+  github-release:
+    needs: [verify, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: ${{ steps.version.outputs.tag }}
-          body: ${{ steps.changelog.outputs.changelog }}
-          files: dist/*
-          draft: false
-          prerelease: false
+          name: python-dist
+          path: dist
+      - name: Create or finish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: v${{ needs.verify.outputs.version }}
+        run: |
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --draft --verify-tag --generate-notes --title "$RELEASE_TAG"
+          fi
+          if [ "$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft')" = true ]; then
+            gh release upload "$RELEASE_TAG" dist/* --clobber
+            gh release edit "$RELEASE_TAG" --draft=false
+          else
+            echo "GitHub release is already published; leaving its assets intact."
+          fi

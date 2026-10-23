@@ -73,7 +73,8 @@ class BoidsEffect(BaseEffect):
             ]
         )
 
-    def render_frame(self, frame_number: int):
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
         self.buffer.clear_buffer(val=self.background)
 
         pos = self._pos

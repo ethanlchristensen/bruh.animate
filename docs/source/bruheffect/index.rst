@@ -44,6 +44,7 @@ Effects
    settings
    registry
    audio_effect
+   terminal_effect
    base_effect
    static_effect
    offset_effect

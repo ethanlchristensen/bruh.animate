@@ -14,21 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import os
-import time
+"""Cycle through diffusion configurations using one Player. q quits."""
 
-os.system(" ")
-
-from bruhanimate import EffectRenderer, Screen
+from bruhanimate import Buffer, effect_registry, play
 from bruhanimate.bruheffect import DiffusionSettings
+
+from ._showcase import Showcase
 
 TARGET_FPS = 30
 PHASE_FRAMES = 500
 
 
-def _run(screen):
-    screen.clear()
-
+def build(buffer):
     phases = [
         (
             "Coral pattern  (f=0.0545, k=0.062)",
@@ -43,40 +40,27 @@ def _run(screen):
             DiffusionSettings(f=0.026, k=0.051, color=True, steps_per_frame=8),
         ),
     ]
-
-    try:
-        for label, settings in phases:
-            screen.clear()
-            renderer = EffectRenderer(
-                screen,
-                frames=PHASE_FRAMES,
-                frame_time=1 / TARGET_FPS,
-                effect_type="diffusion",
-                background=" ",
-                settings=settings,
+    return Showcase(
+        [
+            (
+                label,
+                effect_registry.create(
+                    "diffusion",
+                    buffer if i == 0 else Buffer(buffer.height(), buffer.width()),
+                    " ",
+                    settings=config,
+                ),
             )
-            for frame in range(PHASE_FRAMES):
-                t0 = time.perf_counter()
-                renderer.render_to_back_buffer(frame)
-                screen.print_at(
-                    f"  Diffusion: {label}  (Ctrl+C to skip)".ljust(screen.width),
-                    0,
-                    0,
-                    screen.width,
-                )
-                renderer.swap_buffers()
-                renderer.present_frame()
-                elapsed = time.perf_counter() - t0
-                remaining = 1 / TARGET_FPS - elapsed
-                if remaining > 0:
-                    time.sleep(remaining)
-    except KeyboardInterrupt:
-        pass
+            for i, (label, config) in enumerate(phases)
+        ],
+        duration=PHASE_FRAMES / 30,
+        title="Diffusion",
+    )
 
 
-def run():
-    Screen.show(_run)
+def run(*, frames=None, fps=TARGET_FPS):
+    return play(effect_factory=build, frames=frames, fps=fps, updates_per_second=30)
 
 
 if __name__ == "__main__":
-    Screen.show(_run)
+    run()

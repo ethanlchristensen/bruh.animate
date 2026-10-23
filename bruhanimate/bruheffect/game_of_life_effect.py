@@ -66,6 +66,7 @@ class GameOfLifeEffect(BaseEffect):
             [" " for _ in range(self.buffer.width())]
             for __ in range(self.buffer.height())
         ]
+        self._tick = 0
 
     def _set_attributes(self):
         self.grey_scale = (
@@ -108,14 +109,11 @@ class GameOfLifeEffect(BaseEffect):
         self.rules["life"] = life_rule
         self.rules["death"] = death_rule
 
-    def render_frame(self, frame_number: int):
-        """
-        Renders a single frame of the Game of Life.
-
-        Args:
-            frame_number (int): The current frame number.
-        """
-        if frame_number == 0:
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
+        tick = self._tick
+        self._tick += 1
+        if tick == 0:
             for y in range(self.buffer.height()):
                 for x in range(self.buffer.width()):
                     if random.random() < 0.1:

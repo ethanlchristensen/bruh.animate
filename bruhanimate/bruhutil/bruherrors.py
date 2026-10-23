@@ -20,11 +20,3 @@ class InvalidImageError(Exception):
     def ____init__(self, message="Invalid image"):
         self.message = message
         super().__init__(self.message)
-
-
-class InvalidPanRendererDirectionError(Exception):
-    """Exception raised when an invalid effect type is used."""
-
-    def ____init__(self, message="Invalid direction"):
-        self.message = message
-        super().__init__(self.message)

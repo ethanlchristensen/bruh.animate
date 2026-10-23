@@ -7,7 +7,7 @@ def test_static_effect_render():
     effect = StaticEffect(buffer, "x")
 
     # Should fill the buffer with 'x'
-    effect.render_frame(0)
+    effect.update(1 / 30)
 
     for y in range(5):
         for x in range(10):
@@ -19,7 +19,7 @@ def test_static_effect_render_multi_char():
     effect = StaticEffect(buffer, "xy")
 
     # Should fill the buffer with 'xy' repeating
-    effect.render_frame(0)
+    effect.update(1 / 30)
 
     for y in range(5):
         assert "".join(effect.buffer.grab_slice(0, y, 10)) == "xyxyxyxyxy"

@@ -70,6 +70,7 @@ class FireEffect(BaseEffect):
         self._update_random_variations_counter = 0
 
         self.set_fire_wind(s.wind_direction, s.wind_strength)
+        self._tick = 0
 
     def set_fire_ascii_chars(self, ascii_chars: str):
         """
@@ -195,7 +196,7 @@ class FireEffect(BaseEffect):
         Updates the fire simulation data for one frame.
 
         Args:
-            frame_number (int): The current frame number.
+            frame_number (int): The simulation tick index, independent of draw FPS.
         """
         wind_x = (
             math.cos(self.wind_direction + math.sin(frame_number * 0.05) * 0.2)
@@ -264,7 +265,7 @@ class FireEffect(BaseEffect):
         Seeds a new row of heat at the bottom of the fire.
 
         Args:
-            frame_number (int): The current frame number.
+            frame_number (int): The simulation tick index, independent of draw FPS.
         """
         if self._update_random_variations_counter % 10 == 0:
             self._random_variations = np.random.uniform(
@@ -281,14 +282,11 @@ class FireEffect(BaseEffect):
         random_values = np.random.random(self.buffer.width())
         self.current_data[-1, :] = np.where(random_values < base_intensities, 255, 0)
 
-    def render_frame(self, frame_number: int):
-        """
-        Renders the current frame of the fire effect.
-
-        Args:
-            frame_number (int): The current frame number.
-        """
-        self.update_data(frame_number)
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
+        tick = self._tick
+        self._tick += 1
+        self.update_data(tick)
 
         intensities = np.clip(self.current_data, 0, 255)
 
@@ -296,9 +294,9 @@ class FireEffect(BaseEffect):
             for x in range(self.buffer.width()):
                 self.buffer.put_char(x, y, self.get_colored_char(intensities[y, x]))
 
-        self.add_new_fire_row(frame_number)
+        self.add_new_fire_row(tick)
 
-        if self.swell and frame_number % self.swell_halt == 0:
+        if self.swell and tick % self.swell_halt == 0:
             if self.fire_intensity >= 1.0:
                 self.swell_delta = -0.02
             elif self.fire_intensity <= 0.1:

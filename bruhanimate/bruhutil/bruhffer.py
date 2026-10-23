@@ -22,6 +22,8 @@ class Buffer:
     """
 
     def __init__(self, height, width):
+        if height < 0 or width < 0:
+            raise ValueError("Buffer dimensions must be non-negative")
         self._height = height
         self._width = width
         self._center = self._width // 2
@@ -40,8 +42,7 @@ class Buffer:
                                   and the character from the input buffer that
                                   differs.
         """
-        if self._height != in_buf.height() or self._width != in_buf.width():
-            raise ValueError("Buffer dimensions must match")
+        self._validate_dimensions(in_buf)
 
         for y in range(self._height):
             if self.buffer[y] == in_buf.buffer[y]:
@@ -52,7 +53,10 @@ class Buffer:
 
     def clear_buffer(self, x=0, y=0, w=None, h=None, val=" "):
         """
-        Clear a section of the buffer with a specific character.
+        Clear a rectangle, clipped to the buffer bounds.
+
+        Negative origins are allowed. Nonpositive sizes and rectangles entirely
+        outside the buffer have no effect. None can be used as a transparent fill.
 
         Args:
             x (int): The starting x-coordinate for the clear operation (default is 0).
@@ -63,15 +67,20 @@ class Buffer:
                                clears to the end of the buffer's height.
             val (str): The character to fill the cleared area with (default is a space).
         """
-        width = w if w else self._width
-        height = h if h else self._height
-        line = [val for _ in range(width)]
+        right = self._width if w is None else min(self._width, x + w)
+        bottom = self._height if h is None else min(self._height, y + h)
+        left = max(0, x)
+        top = max(0, y)
+        if right <= left or bottom <= top:
+            return self
 
-        if x == 0 and y == 0 and not w and not h:
-            self.buffer = [line[:] for _ in range(height)]
+        line = [val for _ in range(right - left)]
+
+        if left == 0 and top == 0 and right == self._width and bottom == self._height:
+            self.buffer = [line[:] for _ in range(self._height)]
         else:
-            for i in range(y, y + height):
-                self.buffer[i][x : x + width] = line[:]
+            for i in range(top, bottom):
+                self.buffer[i][left:right] = line[:]
 
         return self
 
@@ -208,6 +217,7 @@ class Buffer:
         Args:
             in_buf (Buffer): The buffer to synchronize with.
         """
+        self._validate_dimensions(in_buf)
         for y in range(self._height):
             self.buffer[y][:] = in_buf.buffer[y][:]
 
@@ -218,10 +228,15 @@ class Buffer:
         Args:
             in_buf (Buffer): The buffer containing values to overlay.
         """
+        self._validate_dimensions(in_buf)
         for y in range(self._height):
             for x in range(self._width):
                 if in_buf.buffer[y][x] is not None:
                     self.buffer[y][x] = in_buf.buffer[y][x]
+
+    def _validate_dimensions(self, in_buf):
+        if self._height != in_buf.height() or self._width != in_buf.width():
+            raise ValueError("Buffer dimensions must match")
 
     def height(self):
         """

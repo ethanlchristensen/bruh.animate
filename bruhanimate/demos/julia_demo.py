@@ -14,30 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import os
-
-os.system(" ")
-
-from bruhanimate import EffectRenderer, Screen
+from bruhanimate import play
 
 TARGET_FPS = 30
 
 
-def _run(screen):
-    screen.clear()
-    renderer = EffectRenderer(
-        screen,
-        frames=float("inf"),
-        frame_time=0.01,
-        effect_type="julia",
+def run(*, frames=None, fps=TARGET_FPS):
+    return play(
+        "julia",
+        frames=frames,
+        fps=fps,
+        updates_per_second=30,
         background=" ",
     )
-    renderer.run()
-
-
-def run():
-    Screen.show(_run)
 
 
 if __name__ == "__main__":
-    Screen.show(_run)
+    run()

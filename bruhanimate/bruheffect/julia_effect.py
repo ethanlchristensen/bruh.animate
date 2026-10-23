@@ -81,13 +81,8 @@ class JuliaEffect(BaseEffect):
                 result[j, i] = iteration / self.max_iter
         return result
 
-    def render_frame(self, frame_number: int):
-        """
-        Renders the julia effect to the screen.
-
-        Args:
-            frame_number (int): The current frame number.
-        """
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
         buffer = self.julia(complex(0.355 + 0.01 * self.tick, 0.355))
         for y in range(self.buffer.height()):
             for x in range(self.buffer.width()):

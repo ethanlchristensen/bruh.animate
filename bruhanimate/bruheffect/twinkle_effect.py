@@ -131,13 +131,8 @@ class TwinkleEffect(BaseEffect):
                     self.buffer.put_char(x, y, spec)
                     self.specs.append((x, y))
 
-    def render_frame(self, frame_number: int):
-        """
-        Renders the next frame of the twinkle effect.
-
-        Args:
-            frame_number (int): The current frame number.
-        """
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
         for x, y in self.specs:
             spec = self.buffer.get_char(x, y)
             self.buffer.put_char(x, y, spec.next().copy())

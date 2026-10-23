@@ -71,3 +71,8 @@ Available Demos
    automaton_demo
    voronoi_demo
    perlin_demo
+
+   shared_player_demo
+   terminal_demo
+
+   grid_demo

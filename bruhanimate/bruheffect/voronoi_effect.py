@@ -71,7 +71,8 @@ class VoronoiEffect(BaseEffect):
         rows = np.arange(self._h)
         self._X, self._Y = np.meshgrid(cols, rows)
 
-    def render_frame(self, frame_number: int):
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
         self.buffer.clear_buffer(val=self.background)
 
         # Move seeds and bounce off edges

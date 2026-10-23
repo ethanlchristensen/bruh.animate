@@ -1,217 +1,172 @@
 # bruhanimate
+
 [![Downloads](https://static.pepy.tech/badge/bruhanimate)](https://pepy.tech/project/bruhanimate)
-[![Downloads](https://static.pepy.tech/badge/bruhanimate/month)](https://pepy.tech/project/bruhanimate)
-[![Downloads](https://static.pepy.tech/badge/bruhanimate/week)](https://pepy.tech/project/bruhanimate)
-<div>
-<img src="https://github.com/user-attachments/assets/22d61f3e-b3ca-406f-9e1c-2f539eea23c7" alt="snow" border="0">
-<img src="https://github.com/user-attachments/assets/644afa91-ffb0-465e-815f-998a59759c3b" alt="fireworks" border="0">
-</div>
 
-[![Supported Python versions](https://img.shields.io/pypi/pyversions/termcolor.svg?logo=python&logoColor=FFE873)](https://pypi.org/project/bruhanimate/)
+Terminal animations for Python 3.13+. Built-in simulations, custom drawing callbacks,
+and layered scenes all run through one player.
 
-bruhanimate provides a set of tools for creating and rendering animations directly in the terminal. Designed for ease of use, this package enables developers to incorporate dynamic animations into command-line applications. While drawing inspiration from existing terminal animation libraries, bruhanimate brings a fresh approach and offers a unique set of features tailored for flexibility and creativity in terminal-based projects.
+The **1.x API** is a breaking change from 0.2.x. See the
+[migration guide](https://github.com/FNBBDevs/bruhanimate/blob/main/docs/MIGRATING_1.0.md) for changes from 0.2.x.
 
-Inspired by the <a href="https://github.com/peterbrittain/asciimatics">Asciimatics</a> package.
+## Install
 
-## Installation
-
-### From PyPI
-
-```bash
-pip install --upgrade bruhanimate
+```sh
+pip install --upgrade "bruhanimate>=1,<2"
+# Optional audio capture dependencies:
+pip install --upgrade "bruhanimate[audio]>=1,<2"
 ```
 
-### From source
+For unreleased changes, install the source checkout with `pip install .` or
+`pip install ".[audio]"`. The commands above require a published 1.x release.
 
-```bash
-git clone https://github.com/FNBBDevs/bruhanimate
-cd bruhanimate
-python -m pip install .
-```
-
-## Quick Start
-
-Use the built-in demos to explore each effect. Each demo can be run two ways:
-
-**From Python:**
-```python
-from bruhanimate import plasma_demo
-plasma_demo.run()
-```
-
-**From the command line:**
-```bash
-python -m bruhanimate.demos.plasma_demo
-```
-
-Available demos: `static_demo`, `offset_demo`, `noise_demo`, `stars_demo`, `snow_demo`, `rain_demo`, `plasma_demo`, `gol_demo`, `matrix_demo`, `twinkle_demo`, `firework_demo`, `fire_demo`, `julia_demo`, `line_demo`, `audio_demo`, `boids_demo`, `sand_demo`, `diffusion_demo`, `automaton_demo`, `voronoi_demo`, `perlin_demo`, `holiday`.
-
-## Effects
-
-Every effect is configured through a **settings object** — one dataclass per effect, all fields optional with sensible defaults. Pass it to the effect at construction time, or leave it out to get the defaults.
-
-| Effect | Settings class | Key options |
-|---|---|---|
-| `StaticEffect` | — | none |
-| `OffsetEffect` | `OffsetSettings` | `direction` |
-| `NoiseEffect` | `NoiseSettings` | `intensity`, `color` |
-| `StarEffect` | `StarSettings` | `color_type` |
-| `SnowEffect` | `SnowSettings` | `intensity`, `wind`, `show_info`, `collision` |
-| `RainEffect` | `RainSettings` | `intensity`, `wind_direction`, `swells`, `collision` |
-| `PlasmaEffect` | `PlasmaSettings` | `color`, `characters`, `random_colors`, `show_info` |
-| `MatrixEffect` | `MatrixSettings` | `character_halt_range`, `color_halt_range`, randomness, `gradient_length` |
-| `GameOfLifeEffect` | `GameOfLifeSettings` | `decay`, `color`, `color_type`, `scale` |
-| `TwinkleEffect` | `TwinkleSettings` | `twinkle_chars`, `density` |
-| `FireEffect` | `FireSettings` | `intensity`, `wind_direction`, `wind_strength`, `use_char_color`, `swell`, `turbulence` |
-| `FireworkEffect` | `FireworkSettings` | `firework_type`, `color_enabled`, `color_type`, `rate` |
-| `JuliaEffect` | — | none |
-| `DrawLinesEffect` | `DrawLinesSettings` | `char`, `thin` |
-| `BoidsEffect` | `BoidsSettings` | `num_boids`, `color`, `char`, `max_speed`, `perception` |
-| `SandEffect` | `SandSettings` | `color`, `char`, `spawn_rate` |
-| `DiffusionEffect` | `DiffusionSettings` | `color`, `char`, `f`, `k`, `steps_per_frame` |
-| `AutomatonEffect` | `AutomatonSettings` | `color`, `char`, `rule` |
-| `VoronoiEffect` | `VoronoiSettings` | `color`, `char`, `num_seeds`, `seed_speed` |
-| `PerlinEffect` | `PerlinSettings` | `color`, `char`, `octaves`, `speed`, `threshold` |
-
-## Usage
-
-### Basic — defaults
+## Play an effect
 
 ```python
-from bruhanimate import Screen, EffectRenderer
+from bruhanimate import SnowSettings, play
 
-def demo(screen: Screen):
-    renderer = EffectRenderer(
-        screen=screen,
-        frames=float("inf"),
-        frame_time=0.05,
-        effect_type="snow",
-        background=" ",
-        transparent=False,
-    )
-    renderer.run()
-
-if __name__ == "__main__":
-    Screen.show(demo)
+play("snow", settings=SnowSettings(intensity=0.02, wind=0.2),
+     fps=60, updates_per_second=30)
 ```
 
-### With settings
+`q`, Escape, or Ctrl+C exits and restores the terminal. `frames=120` limits
+presentations. `fps` controls drawing; `updates_per_second` controls simulation.
+Without an explicit update rate, the player updates once per presentation.
+Built-in simulations advance one step per tick; their settings use tick units.
 
-```python
-from bruhanimate import Screen, EffectRenderer, SnowSettings, SnowEffect
-
-def demo(screen: Screen):
-    renderer = EffectRenderer(
-        screen=screen,
-        frames=float("inf"),
-        frame_time=0.05,
-        effect_type="snow",
-        background=" ",
-        transparent=False,
-    )
-    # configure via settings at construction
-    renderer.effect = SnowEffect(
-        renderer.effect.buffer,
-        " ",
-        settings=SnowSettings(intensity=0.01, wind=0.6),
-    )
-    renderer.run()
-
-if __name__ == "__main__":
-    Screen.show(demo)
-```
-
-### Runtime setters
-
-Settings configure the effect at construction. All effects also expose `set_*` methods for changes mid-animation:
-
-```python
-renderer.effect.set_wind(0.8)          # SnowEffect
-renderer.effect.set_intensity(0.4)     # FireEffect
-renderer.effect.set_wind_direction("east")  # RainEffect
-renderer.effect.set_color_properties(color=True, random_colors=True)  # PlasmaEffect
-renderer.effect.shuffle_plasma_values()
-```
-
-### Effect Registry
-
-Every built-in effect is registered in `effect_registry` — a discoverable, extensible registry that maps effect names to their class, settings class, description, and named presets.
+Discover effects and presets:
 
 ```python
 from bruhanimate import effect_registry
 
-# List all registered effects
 for name, entry in effect_registry.entries().items():
-    print(name, "—", entry.description)
-
-# List presets for an effect
-print(effect_registry.presets("snow"))
-# {'light': SnowSettings(...), 'moderate': SnowSettings(...), 'blizzard': SnowSettings(...), 'windy': SnowSettings(...)}
-
-# Create an effect by name with a preset
-effect = effect_registry.create("snow", buffer, " ", preset="blizzard")
-
-# Create an effect with a custom settings object
-from bruhanimate import SnowSettings
-effect = effect_registry.create("snow", buffer, " ", settings=SnowSettings(wind=0.8))
-
-# Register your own effect
-from bruhanimate import EffectRegistry
-effect_registry.register(
-    "myeffect",
-    MyEffect,
-    settings_cls=MySettings,
-    description="Does something cool",
-    presets={"fast": MySettings(speed=10)},
-)
+    print(name, entry.description, list(entry.presets))
 ```
 
-Available built-in presets:
+Registered effects: `audio`, `automaton`, `boids`, `diffusion`, `drawlines`, `fire`,
+`firework`, `gol`, `julia`, `matrix`, `noise`, `offset`, `perlin`, `plasma`, `rain`,
+`sand`, `snow`, `stars`, `static`, `twinkle`, and `voronoi`.
 
-| Effect | Presets |
-|---|---|
-| `offset` | `right`, `left`, `up`, `down` |
-| `noise` | `sparse`, `dense`, `color` |
-| `stars` | `greyscale`, `color` |
-| `plasma` | `greyscale`, `color`, `blocks`, `random` |
-| `gol` | `plain`, `decay`, `color` |
-| `rain` | `drizzle`, `storm`, `monsoon` |
-| `matrix` | `default`, `fast` |
-| `drawlines` | `thin`, `thick` |
-| `snow` | `light`, `moderate`, `blizzard`, `windy` |
-| `twinkle` | `sparse`, `dense` |
-| `firework` | `plain`, `color`, `random` |
-| `fire` | `campfire`, `inferno`, `windy` |
-| `audio` | `bars`, `mirror`, `waveform`, `minimal` |
-
-### Renderers
-
-| Renderer | Description |
-|---|---|
-| `EffectRenderer` | Full-screen effect |
-| `CenterRenderer` | Effect with a centered image overlay |
-| `PanRenderer` | Effect with a panning image |
-| `FocusRenderer` | Effect with a focused/zooming image |
-| `BackgroundColorRenderer` | Solid background color |
+## Compose content
 
 ```python
-from bruhanimate import Screen, CenterRenderer, bruhimage
+from bruhanimate import ImageEffect, Scene, effect_registry, get_image, play
 
-def demo(screen: Screen):
-    renderer = CenterRenderer(
-        screen=screen,
-        frames=300,
-        frame_time=1/30,
-        img=bruhimage.text_to_image("RAIN!", padding_top_bottom=1, padding_left_right=2),
-        effect_type="rain",
-        background=" ",
-        transparent=False,
+def build(buffer):
+    return Scene(
+        effect_registry.create("snow", buffer, " ", preset="light"),
+        ImageEffect(get_image("bruh")),
     )
-    renderer.update_collision(True)
-    renderer.effect.set_swells(True)
-    renderer.effect.set_wind_direction("east")
-    renderer.run()
 
-if __name__ == "__main__":
-    Screen.show(demo)
+play(effect_factory=build, fps=60, updates_per_second=30)
 ```
+
+Scenes paint from back to front. `None` cells reveal lower layers; wrap an
+animation in `Layer(animation, transparent=True)` to reveal them through plain
+spaces too. `ImageEffect` centers by default, supports explicit x/y coordinates,
+and accepts a velocity in cells per second for panning.
+
+`get_image()` retrieves bundled ASCII art. `text_to_image()` uses PyFiglet;
+it does not load raster image files.
+
+## Draw your own animation
+
+```python
+from bruhanimate import CallbackEffect, play
+
+state = {"step": 0}
+
+def update(dt):
+    state["step"] += 1
+
+def draw(buffer):
+    buffer.put_at_center(buffer.height() // 2, f"Puzzle step: {state['step']}")
+
+play(CallbackEffect(draw, update=update), fps=60, updates_per_second=10)
+```
+
+Advance the puzzle in `update`, and only read its state in `draw`. For persistent
+raster simulations, subclass `BaseEffect` and implement `update(dt)`; its default
+`draw` copies the current raster without advancing it. Use an effect factory to
+receive a correctly sized private buffer.
+
+## Animate solver snapshots
+
+```python
+from bruhanimate import Playback, draw_grid, play
+
+board = ("S...", ".##.", "...E")
+
+def states():
+    yield from ((0, 0), (1, 0), (2, 0), (3, 0), (3, 1), (3, 2))
+
+def draw(position, buffer):
+    grid = draw_grid(buffer, board, spacing=(2, 1))
+    grid.put(*position, "@")
+
+animation = Playback(states(), draw, steps_per_second=5)
+play(animation, fps=60, event_handler=animation.handle_event, on_complete="exit")
+```
+
+Space pauses, n/right steps, +/- changes speed, and q quits. Playback consumes
+states lazily and closes its iterator on exhaustion or early quit. Grid drawing
+handles centering, spacing, camera offsets, and clipping. See the
+[solver playback guide](https://github.com/FNBBDevs/bruhanimate/blob/main/docs/SOLVER_PLAYBACK.md) for snapshots and completion.
+
+## Demos and documentation
+
+```sh
+python -m bruhanimate.demos.snow_demo
+python -m bruhanimate.demos.shared_player_demo
+python -m bruhanimate.demos.grid_demo
+python -m bruhanimate.demos.terminal_demo
+```
+
+All demos expose `run(frames=None, fps=...)`. The terminal demo is a pipe-based
+command console: Escape exits and printable `q` goes to the shell. It does not
+emulate a PTY or interpret terminal escape sequences.
+
+- [Solver playback and grid drawing](https://github.com/FNBBDevs/bruhanimate/blob/main/docs/SOLVER_PLAYBACK.md)
+- [Player, lifecycle, and composition guide](https://github.com/FNBBDevs/bruhanimate/blob/main/docs/PLAYER.md)
+- [1.0 migration guide](https://github.com/FNBBDevs/bruhanimate/blob/main/docs/MIGRATING_1.0.md)
+- [Architecture decisions](https://github.com/FNBBDevs/bruhanimate/blob/main/docs/DESIGN_PROPOSAL.md)
+- [Roadmap and remaining AoC helpers](https://github.com/FNBBDevs/bruhanimate/blob/main/docs/ROADMAP.md)
+
+Inspired by [Asciimatics](https://github.com/peterbrittain/asciimatics).
+Licensed under Apache 2.0; see [LICENSE](https://github.com/FNBBDevs/bruhanimate/blob/main/LICENSE).
+
+## Contributing and releasing
+
+Use Python 3.13 and uv 0.13.4. Start with [AGENTS.md](https://github.com/FNBBDevs/bruhanimate/blob/main/AGENTS.md) for architecture
+and contribution conventions, and keep public docstrings/examples synchronized.
+
+```sh
+python -m pip install uv==0.13.4
+uv sync --locked --group docs
+uv run --locked ruff check .
+uv run --locked pytest
+uv run --locked python scripts/check_examples.py
+uv run --locked --group docs python scripts/build_docs.py
+```
+
+For an existing standalone uv installation, update with `uv self update 0.13.4`.
+
+CI tests Linux, Windows and macOS, verifies source/installed packages, and builds
+Sphinx documentation strictly. The committed uv.lock pins contributor and CI
+environments without pinning consumers to that environment.
+uv handles the development workflow and builds; `poetry-core` remains only as the
+build backend. Publishing uses the PyPA action for Trusted Publishing attestations.
+
+**Publishing is tag-driven:** merging into main does not publish to PyPI. The
+release workflow validates a matching vMAJOR.MINOR.PATCH tag on a main-branch
+commit and publishes the tested distributions. The publish helper previews by
+default; write/commit/push/PR operations require explicit flags.
+
+```sh
+# Validate the currently prepared 1.0.0 without bumping it:
+uv run --locked python publish.py --check
+# Preview a future release:
+uv run --locked python publish.py 1.1.0
+```
+
+Read the [release guide](https://github.com/FNBBDevs/bruhanimate/blob/main/docs/RELEASING.md) for tag commands, Trusted Publishing
+or existing-token setup, environment requirements and retry procedures.

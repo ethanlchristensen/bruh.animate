@@ -94,12 +94,13 @@ class MatrixEffect(BaseEffect):
             random.randint(self.__color_halt_range[0], self.__color_halt_range[1])
             for _ in range(self.buffer.height())
         ]
-        self.__character_frame_numbers = [0 for _ in range(self.buffer.height())]
-        self.__color_frame_numbers = [0 for _ in range(self.buffer.height())]
+        self.__character_ticks = [0 for _ in range(self.buffer.height())]
+        self.__color_ticks = [0 for _ in range(self.buffer.height())]
         self.__buffer_characters = [
             [" " for _ in range(self.buffer.width())]
             for _ in range(self.buffer.height())
         ]
+        self._tick = 0
 
     def set_properties(
         self,
@@ -180,22 +181,19 @@ class MatrixEffect(BaseEffect):
                     ).colored,
                 )
 
-    def render_frame(self, frame_number: int):
-        """
-        Renders a single frame of the matrix effect.
-
-        Args:
-            frame_number (int): The current frame number.
-        """
-        if frame_number == 0:
+    def update(self, dt: float) -> None:
+        """Advance one simulation tick; dt is measured in seconds."""
+        tick = self._tick
+        self._tick += 1
+        if tick == 0:
             self.__initialize_buffer()
         else:
             for y in range(self.buffer.height()):
                 if (
-                    frame_number % self.__character_halts[y] == 0
+                    tick % self.__character_halts[y] == 0
                     and random.random() < self.__character_randomness_one
                 ):
-                    self.__character_frame_numbers[y] += 1
+                    self.__character_ticks[y] += 1
                     for x in range(self.buffer.width()):
                         if random.random() < self.__character_randomness_two:
                             self.__buffer_characters[y][x] = random.choice(
@@ -203,10 +201,10 @@ class MatrixEffect(BaseEffect):
                             )
 
                 if (
-                    frame_number % self.__color_halts[y] == 0
+                    tick % self.__color_halts[y] == 0
                     and random.random() < self.__color_randomness
                 ):
-                    self.__color_frame_numbers[y] += 1
+                    self.__color_ticks[y] += 1
                     for x in range(self.buffer.width()):
                         self.buffer.put_char(
                             x,
@@ -214,8 +212,7 @@ class MatrixEffect(BaseEffect):
                             bruhcolored(
                                 self.__buffer_characters[y][x],
                                 color=self.__gradient[
-                                    (x - self.__color_frame_numbers[y])
-                                    % len(self.__gradient)
+                                    (x - self.__color_ticks[y]) % len(self.__gradient)
                                 ],
                             ),
                         )
