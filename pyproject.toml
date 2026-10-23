@@ -22,7 +22,7 @@ classifiers = [
 ]
 dependencies = [
     "future>=1.0.0,<2.0.0",
-    "bruhcolor>=0.0.64,<0.0.65",
+    "bruhcolor>=0.0.65,<0.0.66",
     "pyfiglet>=1.0.4,<2.0.0",
     "numpy>=2.3.4,<3.0.0",
     "pywin32>=311,<312; sys_platform == 'win32'",
