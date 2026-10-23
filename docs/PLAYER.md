@@ -116,7 +116,35 @@ Scene owns its children, starts once, and closes started children in reverse
 order. A child whose start fails is also closed. Cleanup continues if another
 child's close raises. Duplicate direct ownership is rejected. Do not share one
 animation instance between scenes or players; immutable model data can be shared.
-Create new scenes to change membership. All children currently use one tick rate.
+Create new scenes to change membership. Layers can select independent tick rates.
+
+## Layer regions, clocks, and temporary overlays
+
+`Layer(animation, region=(x, y, width, height), updates_per_second=15)` clips
+painting in scene coordinates and schedules fixed simulation ticks. The child
+still receives a full-scene drawing buffer. There is no coordinate translation
+or collision wall; negative origins and zero-sized regions are allowed.
+Unconfigured layer rates keep forwarding every Scene update unchanged.
+
+A fixed-rate layer waits for a full interval before its first tick. It draws
+current state every presentation. `max_catch_up=5` bounds ticks per Scene update;
+reaching it discards remaining accumulated time. Keep the parent update rate
+high enough for your desired cadence, including in headless capture. Playback
+already schedules its own solver steps, so leave its Layer rate unset for
+responsive pause/step controls.
+
+`TimedOverlay(animation, duration=2, delay=0)` owns a child for a visibility
+window measured in supplied simulation seconds. Its child starts on activation,
+closes on expiry, and paints nothing afterward. A zero duration or an entirely
+skipped delayed window never starts the child. Cleanup remains idempotent after
+partial failures, and drawing never advances time. The wrapper is single-use.
+Pausing a sibling Playback does not pause the overlay.
+
+Overlays participate in finite Scene completion. Use `on_complete="hold"` to
+keep an endless background running after its only finite overlay expires.
+See [the composition guide](source/composition.rst) and `beam_demo` for a complete
+example combining a clipped panel, separate solver/background rates, a temporary
+message, and a status display.
 
 ## Seeded headless rendering
 
@@ -150,7 +178,89 @@ streams stay open. The timeline ends at the last presented frame. No input,
 environment, or audio is recorded. See [capture and recording](source/capture.rst)
 for reproducibility conditions, cell restrictions, and the complete API.
 
+## Movable panels
+
+`Panel` gives any Animation a local surface, optional border/title, and movement:
+
+```python
+from bruhanimate import ImageEffect, Panel, play
+
+panel = Panel(
+    ImageEffect("Hello"), size=(20, 5), position=(2, 1),
+    velocity=(8, 2), bounds=(0, 0, 40, 12), bounce=True, title="Message",
+)
+play(panel, frames=120, fps=60, updates_per_second=60)
+```
+
+Size is the content width/height; a border adds two columns and two rows.
+Position and bounds use parent coordinates; children draw in local coordinates.
+For built-in effects, pass a matching private buffer or use
+`effect_factory=lambda local: SnowEffect(local, " ", SnowSettings())` so Panel
+provides the correctly sized buffer at startup. Exactly one child source is required.
+
+Panel owns its child, closes it once (including failed startup), and is single-use
+after close. `updates_per_second` paces its child while motion uses the full
+supplied dt. `finished` mirrors the child, and input handlers stay on Player.
+Bounds clip both frame and content; bounce requires explicit bounds and pins
+oversized axes at the bounds origin. Scene order controls stacking. `background=None`
+allows unpainted child cells to reveal lower layers; child spaces still paint.
+See the [Panel guide](source/panels.rst) for typed options, validation, and examples.
+
+## Layout containers and text
+
+`Row` and `Column` allocate `Slot` children using `Fixed(cells)` and
+`Flex(weight=1)` sizes. `Spacer` reserves unpainted space. Containers support
+integer gaps/uniform padding; build them through `play(effect_factory=layout.build)`.
+Nest containers in slots, or use `Slot(effect_factory=...)` to receive a local
+buffer for an effect or Panel. Layout trees are single-use and reflow in place.
+
+```python
+from bruhanimate import Column, Fixed, Label, Slot, StatusBar, play
+
+layout = Column(
+    Slot(Label("Dashboard", align="center"), size=Fixed(1)),
+    Slot(Label(lambda: "Application state", vertical_align="middle")),
+    Slot(StatusBar("Ready", right="q quit"), size=Fixed(1)),
+    gap=1,
+)
+play(effect_factory=layout.build, frames=120, on_resize="resize")
+```
+
+Text callbacks refresh at startup and on update; drawing only reads cached text.
+`TextStyle` provides foreground/background palette colors and bold. Label alignment
+and overflow choices are Literal-typed for editor completion. Initially zero-area slots defer startup until visible; supplied children close on
+cleanup even if never shown. Previously started hidden children keep updating and
+participate in completion. Input remains on Player.
+See [layouts and text widgets](source/layouts.rst) and run
+`python -m bruhanimate.demos.dashboard_demo` for a complete example.
+
 ## Ownership, input, and failures
+
+`ScrollView(animation, size=(width, height), content_size=(canvas_width, canvas_height))`
+owns content on a larger canvas. Its `resize()` changes the viewport without
+restarting content or consuming solver snapshots; `set_content_size()` explicitly
+changes the canvas. `LogView(size=(width, height), max_lines=1000,
+wrap="character", follow_tail=True)` retains bounded text history. Append during
+input/update; draw only paints. Upward scrolling suspends following, and End
+resumes it. Resize and history eviction preserve a logical line/character anchor
+where possible. Both expose `bindings` for FocusTarget and typed scroll methods;
+see [scrollable views](source/views.rst). Panel/layout own the views normally.
+
+For declarative controls, import `KeyBinding`, `KeyBindings`, `FocusTarget`, and
+`FocusGroup` from `bruhanimate`. Named keys such as `"space"` and `"shift+tab"`
+use the `KeyName` Literal; `KeyBinding.character("n", action)` binds a character.
+Actions return None, consume their key, and request exit only with `quit=True`.
+Attach each target with `Panel(..., focus=target)` and pass
+`event_handler=group.handle_event` to Player/play. The focused border highlights
+selection; `StatusBar(center=group.help_text)` shows descriptions from bindings.
+
+Routing is reserved navigation, focused bindings, then global bindings. FocusGroup
+defaults to Tab/Shift+Tab and global fallback q/Q, Escape, Ctrl+C; supplying
+`global_bindings` replaces the defaults. Unavailable targets are skipped, including
+zero-area layout slots after resize. Standalone KeyBindings has no default quit
+keys. `dispatch()` returns explicit `EventResult` values for custom routing;
+use `handle_event`, not `dispatch`, for Player's Boolean handler contract.
+See the [keyboard guide](source/keyboard.rst) for full options and examples.
 
 Player registers effect cleanup before startup, covering partial acquisition,
 update/draw errors, resize, quit, and Ctrl+C. It never closes a borrowed Screen.
@@ -162,7 +272,24 @@ Player replaces default key routing; True requests exit. For a `TerminalEffect`,
 pass `terminal.handle_event` so q reaches the shell while Escape exits. It keeps
 bounded history/output processing and reaps owned processes and readers on close.
 
-Resize raises `ScreenResizedError` after cleanup; there is no automatic reflow.
+Resize raises `ScreenResizedError` after cleanup by default. Set
+`on_resize="resize"` to refresh Screen dimensions, reflow existing content through
+its optional `resize((width, height))` hook, and fully repaint. The typed
+`ResizePolicy`, `Resizable`, and `ResizableAnimation` contracts are public.
+Factories are not recalled; solver state, iterator ownership, pause/speed settings,
+queued steps and accumulated layer time remain intact. Layouts call factories for
+initially hidden slots only when they first become visible. Use `Panel(fit=True, ...)`
+inside a slot to follow its changing allocation; fixed panels retain their geometry.
+Snow, plasma, fire, rain and Matrix adapt their simulation areas without restarting.
+Snow moves floor-connected piles to the bottom; fire anchors heat and its last flame
+raster there too. Plasma redraws at its current phase. Rain retains drops and bolt
+lifetimes and moves floor splashes; Matrix retains characters and per-row timing.
+New Matrix cells initialize on the next update. Cropped state is discarded.
+Explicit collision surfaces keep their coordinates and dimensions. Resize consumes
+no randomness and advances no simulation ticks. Other built-ins retain their
+original rasters and clip their views; extra cells reveal the background. A temporarily empty
+terminal suspends drawing/updates while quit polling and duration limits continue.
+See the [resize guide](source/resize.rst) for custom content and backend contracts.
 Other failures propagate after cleanup. KeyboardInterrupt ends playback normally.
 Audio construction is inert; start opens capture, and close joins its worker.
 Audio backend errors remain visible through the effect's existing error display.
@@ -187,7 +314,7 @@ Scene completes when all finite children finish, ignoring endless backgrounds.
 
 ## Next steps
 
-Masks, independent general layer clocks, character-assembly motion,
-image/video export, and resize reconstruction remain future work. Static collision
+General masks, reusable path pulses/ripples, character-assembly motion,
+image/video export, and resize adapters for additional simulations remain future work. Static collision
 configuration on rain/snow/fire remains explicit; Scene does not infer physics
 from painted layers.

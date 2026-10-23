@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from contextlib import ExitStack
-from dataclasses import dataclass
-from math import floor
+from dataclasses import dataclass, field
+from math import floor, isfinite
 
 from .bruhutil.bruhffer import Buffer
+from .keyboard import _set_visible
 from .player import Animation
+from .resize import _resize, _size
 
 
 @dataclass(frozen=True)
@@ -17,10 +19,48 @@ class Layer:
 
     transparent=True also treats plain spaces as transparent. ANSI-colored
     spaces remain visible, so colored backgrounds can be composed deliberately.
+
+    region=(x, y, width, height) clips painting in destination coordinates;
+    it does not translate or resize the child's full-scene drawing buffer.
+    Negative origins and empty regions are allowed. Clipping never pauses updates.
+    updates_per_second=None forwards every Scene update unchanged. A positive
+    rate accumulates supplied dt and sends fixed 1/rate ticks, beginning after
+    one full interval. max_catch_up bounds ticks per Scene update; reaching the
+    bound discards remaining accumulated time. Presentation still draws current
+    state every frame. These clocks use simulation seconds, not wall time.
     """
 
     animation: Animation
     transparent: bool = False
+    region: tuple[int, int, int, int] | None = field(default=None, kw_only=True)
+    updates_per_second: float | None = field(default=None, kw_only=True)
+    max_catch_up: int = field(default=5, kw_only=True)
+
+    def __post_init__(self) -> None:
+        if type(self.transparent) is not bool:
+            raise TypeError("transparent must be a bool")
+        if self.region is not None:
+            if not isinstance(self.region, tuple) or len(self.region) != 4:
+                raise TypeError("region must be an (x, y, width, height) tuple")
+            if any(type(value) is not int for value in self.region):
+                raise TypeError("region coordinates and sizes must be integers")
+            if self.region[2] < 0 or self.region[3] < 0:
+                raise ValueError("region width and height must be non-negative")
+        if self.updates_per_second is not None:
+            _seconds(self.updates_per_second, "updates_per_second")
+            if self.updates_per_second == 0:
+                raise ValueError("updates_per_second must be positive")
+        if type(self.max_catch_up) is not int:
+            raise TypeError("max_catch_up must be an integer")
+        if self.max_catch_up < 1:
+            raise ValueError("max_catch_up must be positive")
+
+
+def _seconds(value: float, name: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError(f"{name} must be a number")
+    if not isfinite(value) or value < 0:
+        raise ValueError(f"{name} must be non-negative and finite")
 
 
 class Scene:
@@ -42,6 +82,7 @@ class Scene:
             raise ValueError("A Scene cannot own the same animation twice")
         self._cleanup: ExitStack | None = None
         self._scratch: Buffer | None = None
+        self._elapsed = [0.0] * len(self.layers)
 
     @property
     def finished(self) -> bool | None:
@@ -58,6 +99,7 @@ class Scene:
         if self._cleanup is not None:
             return
         self._cleanup = ExitStack()
+        self._elapsed = [0.0] * len(self.layers)
         try:
             for layer in self.layers:
                 self._cleanup.callback(layer.animation.close)
@@ -67,8 +109,33 @@ class Scene:
             raise
 
     def update(self, dt: float) -> None:
+        """Advance layer clocks in seconds; no terminal polling or sleeping."""
+        _seconds(dt, "dt")
+        for index, layer in enumerate(self.layers):
+            if layer.updates_per_second is None:
+                layer.animation.update(dt)
+                continue
+            interval = 1 / layer.updates_per_second
+            elapsed = self._elapsed[index] + dt
+            tolerance = min(1e-9, interval * 1e-6)
+            count = 0
+            while elapsed + tolerance >= interval and count < layer.max_catch_up:
+                elapsed = max(0.0, elapsed - interval)
+                layer.animation.update(interval)
+                count += 1
+            self._elapsed[index] = 0.0 if count == layer.max_catch_up else elapsed
+
+    def set_visible(self, visible: bool) -> None:
+        """Propagate a parent's visibility to focusable descendants."""
         for layer in self.layers:
-            layer.animation.update(dt)
+            _set_visible(layer.animation, visible)
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Notify children without changing layer clocks or fixed region clips."""
+        _size(size)
+        for layer in self.layers:
+            _resize(layer.animation, size)
+        self._scratch = None
 
     def draw(self, buffer: Buffer) -> None:
         size = (buffer.height(), buffer.width())
@@ -78,16 +145,126 @@ class Scene:
         ):
             self._scratch = Buffer(*size)
         for layer in self.layers:
+            x, y, width, height = layer.region or (0, 0, size[1], size[0])
+            left, top = max(0, x), max(0, y)
+            right, bottom = min(size[1], x + width), min(size[0], y + height)
+            if right <= left or bottom <= top:
+                continue
             self._scratch.clear_buffer(val=None)
             layer.animation.draw(self._scratch)
-            for y, row in enumerate(self._scratch.buffer):
-                for x, cell in enumerate(row):
+            for y in range(top, bottom):
+                for x in range(left, right):
+                    cell = self._scratch.buffer[y][x]
                     if cell is not None:
                         value = str(cell)
                         if not (layer.transparent and value == " "):
                             buffer.put_char(x, y, value)
 
     def close(self) -> None:
+        cleanup, self._cleanup = self._cleanup, None
+        if cleanup is not None:
+            cleanup.close()
+
+
+class TimedOverlay:
+    """Own an animation visible for duration seconds after an optional delay.
+
+    Time advances only in update(dt), including when a sibling Playback is paused.
+    The child starts when the delay elapses and closes on expiry or owner cleanup.
+    duration=0 never starts it. Active time is [delay, delay + duration); a large
+    update that skips this entire window never starts the child. Draw is read-only
+    and paints nothing outside the window, revealing freshly composed lower layers.
+
+    Child updates receive only the active part of dt. The child may finish early;
+    its last state remains eligible for drawing until the duration expires. This
+    wrapper reports finished on expiry and participates in Scene completion.
+    It is single-use and does not forward input: route events explicitly through
+    Player. Never give its child to another lifecycle owner.
+    """
+
+    def __init__(self, animation: Animation, *, duration: float, delay: float = 0):
+        if not isinstance(animation, Animation):
+            raise TypeError("TimedOverlay requires an Animation")
+        _seconds(duration, "duration")
+        _seconds(delay, "delay")
+        if not isfinite(delay + duration):
+            raise ValueError("delay + duration must be finite")
+        self.animation = animation
+        self.duration = duration
+        self.delay = delay
+        self._elapsed = 0.0
+        self._started = False
+        self._closed = False
+        self._finished = duration == 0
+        self._cleanup: ExitStack | None = None
+
+    @property
+    def finished(self) -> bool:
+        """Whether the visibility window has expired; early close is not expiry."""
+        return self._finished
+
+    def _activate(self) -> None:
+        self._cleanup = ExitStack()
+        self._cleanup.callback(self.animation.close)
+        try:
+            self.animation.start()
+        except BaseException:
+            self.close()
+            raise
+
+    def start(self) -> None:
+        if self._closed:
+            raise RuntimeError("TimedOverlay is single-use; construct a new instance")
+        if self._started:
+            return
+        self._started = True
+        if self.delay == 0 and not self.finished:
+            self._activate()
+
+    def update(self, dt: float) -> None:
+        if not self._started or self._closed:
+            raise RuntimeError(
+                "TimedOverlay must be started and not closed before update"
+            )
+        _seconds(dt, "dt")
+        if self.finished:
+            return
+        before = self._elapsed
+        self._elapsed += dt
+        end = self.delay + self.duration
+        tolerance = min(1e-9, self.duration * 1e-6)
+        if (
+            self._cleanup is None
+            and self._elapsed + tolerance < end
+            and self._elapsed + tolerance >= self.delay
+        ):
+            self._activate()
+        if self._cleanup is not None:
+            active_dt = max(0.0, min(self._elapsed, end) - max(before, self.delay))
+            if active_dt > 0 or dt == 0:
+                self.animation.update(active_dt)
+        if self._elapsed + tolerance >= end:
+            self._finished = True
+            cleanup, self._cleanup = self._cleanup, None
+            if cleanup is not None:
+                cleanup.close()
+
+    def set_visible(self, visible: bool) -> None:
+        """Propagate parent visibility without changing the visibility timer."""
+        _set_visible(self.animation, visible)
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Notify unexpired content without resetting the visibility window."""
+        _size(size)
+        if not self._closed and not self.finished:
+            _resize(self.animation, size)
+
+    def draw(self, buffer: Buffer) -> None:
+        if self._cleanup is not None and not self._closed:
+            self.animation.draw(buffer)
+
+    def close(self) -> None:
+        self._closed = True
         cleanup, self._cleanup = self._cleanup, None
         if cleanup is not None:
             cleanup.close()

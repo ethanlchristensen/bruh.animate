@@ -50,9 +50,19 @@ Layer(animation, transparent=True) opts into space transparency. ImageEffect
 centers text/image rows by default, accepts x/y including zero/negative positions,
 and moves at velocity=(columns_per_second, rows_per_second). Content clips.
 
+For local animation surfaces with borders, titles, movement, and optional edge
+bouncing, use :doc:`panels`. Panel owns its child, translates local drawing into
+parent coordinates, and can pace the child independently of panel movement.
+
 Default quit keys are q/Q, Escape, and Ctrl+C. Player's event_handler replaces
 this routing; True means quit. play also accepts an event_handler. Pass TerminalEffect.handle_event for shell input.
-Resize raises ScreenResizedError after cleanup; other errors also propagate.
+For typed bindings and panel navigation, pass ``FocusGroup.handle_event``; see
+:doc:`keyboard`. Its dispatch result distinguishes handled, unhandled, and quit;
+the handle_event adapter returns True only for quit. Existing Boolean handlers
+keep their contract.
+Resize raises ScreenResizedError after cleanup by default. Set
+``on_resize="resize"`` for state-preserving reflow; see :doc:`resize`.
+Other errors also propagate.
 manage_effect=False borrows an already started instance without start/close.
 
 See the `full player guide

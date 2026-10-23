@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 import pytest
 
@@ -8,6 +10,7 @@ from bruhanimate.bruheffect.rain_effect import RainEffect
 from bruhanimate.bruheffect.settings import (
     AudioSettings,
     FireworkSettings,
+    PlasmaSettings,
     RainSettings,
     SnowSettings,
 )
@@ -18,6 +21,29 @@ EFFECT_CASES = [
     for name, entry in effect_registry.entries().items()
     for preset in [None, *entry.presets]
 ]
+
+
+@pytest.mark.parametrize("characters", [False, True])
+def test_colored_plasma_cells_contain_only_complete_sgr_and_one_glyph(characters):
+    effect = effect_registry.create(
+        "plasma",
+        Buffer(3, 5),
+        " ",
+        settings=PlasmaSettings(color=True, characters=characters, seed=7),
+    )
+    effect.start()
+    try:
+        effect.update(1 / 30)
+        for row in effect.buffer.buffer:
+            for cell in row:
+                glyph = re.sub(r"\x1b\[[0-9;]*m", "", cell)
+                assert "\x1b" not in glyph
+                assert len(glyph) == 1
+                if not characters:
+                    assert glyph == " "
+                    assert "\x1b[48;5;" in cell
+    finally:
+        effect.close()
 
 
 @pytest.fixture(autouse=True)

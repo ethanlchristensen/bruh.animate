@@ -5,7 +5,7 @@ This section contains content related to the demos package.
 
 Overview
 --------
-Each demo is a standalone runnable example for one effect. There are two ways to run a demo:
+Each demo is a standalone runnable example of an effect or composed scene. There are two ways to run a demo:
 
 **From Python:**
 
@@ -22,6 +22,14 @@ Each demo is a standalone runnable example for one effect. There are two ways to
 
 Available Demos
 ---------------
+
+- **dashboard_demo** — Nested layouts, live solver statistics, status bar, and animated panels.
+
+- **windows_demo** — Four bouncing windows with plasma, fire, snow, and Matrix rain.
+
+- **tv_demo** — Plasma inside a retro TV, snow behind it, and a temporary channel badge.
+
+- **beam_demo** — Clipped snow, independently paced beam solver, and timed overlay.
 
 - **audio_demo** — System audio visualizer (EQ bars, waveform, mirror).
 - **static_demo** — Static background fill.
@@ -50,6 +58,10 @@ Available Demos
    :maxdepth: 2
 
    audio_demo
+   beam_demo
+   tv_demo
+   windows_demo
+   dashboard_demo
    static_demo
    offset_demo
    noise_demo

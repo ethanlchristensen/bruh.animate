@@ -37,6 +37,7 @@ from .bruheffect.settings import (
 )
 from .bruhutil.bruhtypes import EffectType as EffectName
 from .capture import Frame
+from .resize import ResizePolicy
 
 SettingsT = TypeVar("SettingsT")
 PresetT = TypeVar("PresetT", bound=str)
@@ -77,6 +78,7 @@ class EffectInfo(Generic[SettingsT, PresetT]):
         frames: int | None = None,
         duration: float | None = None,
         on_complete: Literal["hold", "exit"] = "hold",
+        on_resize: ResizePolicy = "raise",
         background: str = " ",
         event_handler: Callable[[int], bool] | None = None,
     ) -> int:
@@ -97,6 +99,7 @@ class EffectInfo(Generic[SettingsT, PresetT]):
             frames=frames,
             duration=duration,
             on_complete=on_complete,
+            on_resize=on_resize,
             background=background,
             event_handler=event_handler,
         )

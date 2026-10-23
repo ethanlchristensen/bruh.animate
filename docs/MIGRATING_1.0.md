@@ -137,3 +137,81 @@ See [discovery](source/discovery.rst) for editor completion and settings ranges.
   effect seed overrides copy settings/presets; static/Julia reject these overrides.
 
 See [capture and recording](source/capture.rst) for timing and format contracts.
+
+## 1.2.0: layer composition (unreleased)
+
+- `ScrollView` owns an animation on an explicitly sized canvas, with a separately
+  resizable viewport and reusable scrolling bindings. `LogView` provides bounded
+  logical-line history, Literal-typed `LogWrap` modes, and explicit follow-tail
+  control. They use the existing lifecycle/input loop and add no dependencies.
+- The dashboard now has an activity log and a scrollable solver board. Its Right
+  key pans horizontally; n remains single-step. Standalone Playback and the other
+  solver demos retain their existing Right-to-step binding. Tab/Shift+Tab visits
+  solver, signal, and log; End resumes log following. See [views](source/views.rst).
+
+- Typed `KeyBinding`, `KeyBindings`, `FocusTarget`, and `FocusGroup` provide
+  declarative actions and panel focus. `KeyName` and `FocusDirection` expose
+  editor choices; `BindingHint` supplies help text data. Pass `handle_event` to
+  Player/play; `dispatch` returns an explicit `EventResult`, whose Boolean
+  conversion raises. Existing Boolean event handlers remain supported.
+- Screen now returns shared `Screen.KEY_TAB` (-301) for Tab on Windows and
+  Unix, and shared navigation/function-key constants on Unix. Raw handlers
+  comparing Windows' old Tab code 11 or platform-specific curses navigation
+  codes should use the Screen constants. KeyBindings accepts legacy Tab 9/11,
+  Enter 13, Escape 27, and Backspace 8/127 aliases. Shift+Tab is KEY_BACK_TAB.
+- `Panel(focus=..., focus_border_color=...)` displays selection. Layouts remove
+  zero-area slots from navigation; disabled, hidden, closed, and failed panels
+  are skipped. The dashboard demonstrates independent solver/signal controls
+  and status hints generated from bindings. See [keyboard](source/keyboard.rst).
+
+- `play`, `Player`, and typed effect `.play()` accept `on_resize: ResizePolicy`.
+  The default `"raise"` preserves `ScreenResizedError`; `"resize"` refreshes the
+  screen, notifies optional `Resizable` content and fully repaints. CLI playback
+  exposes `--on-resize`. No dependencies, version changes, or solver restarts are
+  needed. Custom content without a hook must draw into arbitrary viewport sizes.
+- Layouts reflow existing children, and `Panel(fit=True, ...)` follows its parent
+  allocation. Factories run at most once; initially hidden slots start when first
+  visible. Started hidden children continue updating and participating in completion.
+  Snow, plasma, fire, rain and Matrix adapt simulation dimensions through typed
+  resize hooks. Snow piles and fire heat follow the bottom; plasma retains its
+  phase. Rain keeps drops and bolt lifetimes, moving floor splashes; Matrix keeps
+  characters and row timing, initializing new cells on the next update. Cropped
+  state is discarded. Other effects retain their original rasters and clip.
+  Explicit collision geometry remains unchanged; rain safely ignores cells beyond
+  an existing collision mask. See [resize](source/resize.rst).
+- `dashboard_demo` enables live resize while preserving solver snapshots, pause,
+  speed and queued manual steps. `ResizableAnimation` exposes resize on built
+  layouts for type checking; `Resizable` describes the optional viewport hook.
+
+- `Row`, `Column`, `Slot`, `Fixed`, `Flex`, and `Spacer` add typed, nested layout
+  allocation. Bind a single-use tree with `layout.build(buffer)` or pass its
+  build method as a player factory. Zero-area factories are skipped; supplied
+  hidden children still close. Geometry reflows with `on_resize="resize"`.
+- `Label`, `StatusBar`, and `TextStyle` add validated single-cell text and styling.
+  Dynamic text is sampled during startup/updates, never draw. Alignment and overflow
+  choices use Literal type hints. `dashboard_demo` combines these helpers with
+  solver controls, a statistics sidebar, and independent animated effects.
+
+- `Panel` adds owned local surfaces, translation, optional borders/titles and
+  bounded bouncing motion. Size excludes the border. Its typed factory receives
+  a content-sized Buffer at startup; existing built-in effect buffers must match.
+  Child update rates are independent of motion. Panels are single-use after close,
+  mirror child completion, and leave input routing to Player. `windows_demo` now
+  uses public panels in place of its private wrapper; its faster speeds are retained.
+
+- Layer gains keyword-only `region`, `updates_per_second`, and `max_catch_up`.
+  Existing default layers keep forwarding every update and painting the full
+  scene. Regions clip destination coordinates without resizing/translation.
+- Fixed-rate layers accumulate supplied seconds and wait for one complete tick
+  interval before updating. Catch-up is bounded, including offline capture.
+  Drawing still occurs at presentation rate. Nested scenes use their parent's
+  delivered time; they do not create another playback loop.
+- `TimedOverlay` owns one child, starts it after an optional delay, closes it at
+  expiry, and then paints nothing. It is single-use and participates in finite
+  Scene completion. Use `on_complete="hold"` to continue playing backgrounds.
+- Scene rejects invalid negative/non-finite `dt`; Layer rejects malformed regions,
+  nonpositive/non-finite rates, invalid catch-up bounds, and non-bool transparency.
+- `beam_demo` uses an original public fixture to demonstrate composition and
+  solver controls without external players, puzzle inputs, or new dependencies.
+
+See [composition](source/composition.rst) for complete ownership and timing rules.

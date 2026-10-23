@@ -127,6 +127,11 @@ combining glyphs, cursor escapes, and other controls are rejected during recordi
 Ambiguous-width glyphs assume one terminal column, as in :doc:`grid`.
 Image/video export and automatic resize reconstruction remain future work.
 
+Recording does not install a playback application or add a Windows ``.cast``
+replay command. External playback requires a compatible asciinema player.
+Use ``play`` or the bundled demos to run animations directly in your normal
+Windows terminal without an external recording player.
+
 API
 ---
 

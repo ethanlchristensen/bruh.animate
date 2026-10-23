@@ -289,6 +289,18 @@ if sys.platform == "win32":
                 re_sized = True
             return re_sized
 
+        def refresh_size(self) -> bool:
+            """Accept current dimensions and reset cursor state; False if empty."""
+            info = self._stdout.GetConsoleScreenBufferInfo()["Window"]
+            width, height = info.Right - info.Left + 1, info.Bottom - info.Top + 1
+            if width < 1 or height < 1:
+                return False
+            self.width = self._last_width = width
+            self.height = self._last_height = height
+            self._current_x = self._current_y = -1
+            self._frame_parts = []
+            return True
+
         def set_title(self, title: str) -> None:
             """
             Set the console window title.
@@ -351,7 +363,7 @@ if sys.platform == "win32":
                         elif event.VirtualKeyCode == win32con.VK_RETURN:
                             key_code = 10
                         elif event.VirtualKeyCode == win32con.VK_TAB:
-                            key_code = 11
+                            key_code = Screen.KEY_TAB
 
                         # Return the key code if a valid mapping exists.
                         if key_code:
@@ -529,6 +541,27 @@ else:
                     return 10
                 elif c == 27:
                     return self.KEY_ESCAPE
+                elif c == 9:
+                    return self.KEY_TAB
+                navigation = {
+                    curses.KEY_BTAB: self.KEY_BACK_TAB,
+                    curses.KEY_LEFT: self.KEY_LEFT,
+                    curses.KEY_RIGHT: self.KEY_RIGHT,
+                    curses.KEY_UP: self.KEY_UP,
+                    curses.KEY_DOWN: self.KEY_DOWN,
+                    curses.KEY_HOME: self.KEY_HOME,
+                    curses.KEY_END: self.KEY_END,
+                    curses.KEY_PPAGE: self.KEY_PAGE_UP,
+                    curses.KEY_NPAGE: self.KEY_PAGE_DOWN,
+                    curses.KEY_IC: self.KEY_INSERT,
+                    curses.KEY_DC: self.KEY_DELETE,
+                    **{
+                        getattr(curses, f"KEY_F{i}"): getattr(self, f"KEY_F{i}")
+                        for i in range(1, 13)
+                    },
+                }
+                if c in navigation:
+                    return navigation[c]
                 return c
             return None
 
@@ -568,8 +601,6 @@ else:
             self._frame_parts = []
 
         def _resize_handler(self, *_):
-            curses.endwin()
-            curses.initscr()
             self._re_sized = True
 
         def _continue_handler(self, *_):
@@ -577,6 +608,28 @@ else:
 
         def has_resized(self):
             return self._re_sized
+
+        def refresh_size(self) -> bool:
+            """Refresh curses outside the signal handler, then acknowledge resize."""
+            # Clear first so a new signal during refresh remains pending.
+            self._re_sized = False
+            try:
+                dimensions = os.get_terminal_size(sys.stdout.fileno())
+                width, height = dimensions.columns, dimensions.lines
+                if width < 1 or height < 1:
+                    self._re_sized = True
+                    return False
+                curses.resizeterm(height, width)
+            except (OSError, ValueError):
+                curses.update_lines_cols()
+                height, width = self.screen.getmaxyx()
+            if width < 1 or height < 1:
+                self._re_sized = True
+                return False
+            self.width, self.height = width, height
+            self._cur_x = self._cur_y = -1
+            self._frame_parts = []
+            return True
 
         def close(self, restore=True):
             if getattr(self, "_closed", False):

@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "bruhanimate"
-version = "1.1.0"
+version = "1.2.0"
 description = "Composable ASCII terminal animations and solver playback"
 authors = [{name = "Ethan Christensen", email = "ethanlchristensen@outlook.com"}]
 license = "Apache-2.0"
@@ -79,7 +79,7 @@ python_files = ["test_*.py"]
 addopts = "--cov=bruhanimate --cov-report=term-missing"
 
 [tool.mypy]
-files = ["tests/typing/discovery.py", "bruhanimate/capture.py"]
+files = ["bruhanimate/views.py", "bruhanimate/keyboard.py", "bruhanimate/resize.py", "bruhanimate/player.py", "tests/typing/discovery.py", "bruhanimate/capture.py", "bruhanimate/scene.py", "bruhanimate/panel.py", "bruhanimate/layout.py", "bruhanimate/widgets.py", "bruhanimate/demos/dashboard_demo.py", "bruhanimate/demos/beam_demo.py", "bruhanimate/demos/tv_demo.py", "bruhanimate/demos/windows_demo.py"]
 python_version = "3.13"
 follow_imports = "silent"
 ignore_missing_imports = true

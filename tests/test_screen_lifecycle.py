@@ -74,6 +74,132 @@ def test_explicit_end_prompt_accepts_normalized_input(monkeypatch):
     sleep.assert_called_once_with(0.05)
 
 
+def test_unix_normalizes_named_keys_with_mock_curses(unix_screen):
+    screen_cls, curses = unix_screen
+    screen = screen_cls.__new__(screen_cls)
+    screen.screen = Mock()
+    names = {
+        "KEY_BTAB": screen.KEY_BACK_TAB,
+        "KEY_LEFT": screen.KEY_LEFT,
+        "KEY_RIGHT": screen.KEY_RIGHT,
+        "KEY_UP": screen.KEY_UP,
+        "KEY_DOWN": screen.KEY_DOWN,
+        "KEY_HOME": screen.KEY_HOME,
+        "KEY_END": screen.KEY_END,
+        "KEY_PPAGE": screen.KEY_PAGE_UP,
+        "KEY_NPAGE": screen.KEY_PAGE_DOWN,
+        "KEY_IC": screen.KEY_INSERT,
+        "KEY_DC": screen.KEY_DELETE,
+        "KEY_BACKSPACE": screen.KEY_BACK,
+        "KEY_ENTER": 10,
+        **{f"KEY_F{i}": getattr(screen, f"KEY_F{i}") for i in range(1, 13)},
+    }
+    curses.ERR = -1
+    cases = {
+        9: screen.KEY_TAB,
+        27: screen.KEY_ESCAPE,
+        8: screen.KEY_BACK,
+        127: screen.KEY_BACK,
+        13: 10,
+        10: 10,
+        32: 32,
+        ord("q"): ord("q"),
+        -1: None,
+    }
+    for code, (name, expected) in enumerate(names.items(), 300):
+        setattr(curses, name, code)
+        cases[code] = expected
+    for raw, expected in cases.items():
+        screen.screen.getch.return_value = raw
+        assert screen.get_event() == expected
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows backend")
+def test_windows_normalizes_named_keys_with_mock_console():
+    output, input_handle = Mock(), Mock()
+    output.GetConsoleScreenBufferInfo.return_value = {
+        "Window": SimpleNamespace(Left=0, Top=0, Right=79, Bottom=23)
+    }
+    screen = bruhscreen.Screen(output, input_handle, Mock(), 0)
+    codes = bruhscreen.win32con
+    cases = [
+        (codes.VK_TAB, "\t", 0, screen.KEY_TAB),
+        (codes.VK_TAB, "\t", codes.SHIFT_PRESSED, screen.KEY_BACK_TAB),
+        (codes.VK_RETURN, "\r", 0, 10),
+        (codes.VK_RIGHT, "\0", 0, screen.KEY_RIGHT),
+        (codes.VK_ESCAPE, "\x1b", 0, screen.KEY_ESCAPE),
+        (codes.VK_F1, "\0", 0, screen.KEY_F1),
+        (ord("Q"), "q", 0, ord("q")),
+        (ord("C"), "\x03", codes.LEFT_CTRL_PRESSED, 3),
+    ]
+    for virtual, char, modifiers, expected in cases:
+        event = SimpleNamespace(
+            EventType=bruhscreen.win32console.KEY_EVENT,
+            Char=char,
+            KeyDown=True,
+            VirtualKeyCode=virtual,
+            ControlKeyState=modifiers,
+        )
+        input_handle.PeekConsoleInput.return_value = [event]
+        input_handle.ReadConsoleInput.return_value = [event]
+        assert screen.get_event() == expected
+
+
+def test_unix_resize_signal_only_marks_pending_and_refreshes_outside_handler(
+    unix_screen, monkeypatch
+):
+    screen_cls, curses = unix_screen
+    screen = screen_cls.__new__(screen_cls)
+    screen.screen = Mock()
+    screen._re_sized = False
+    screen._resize_handler()
+    assert screen.has_resized()
+    curses.endwin.assert_not_called()
+    curses.initscr.assert_not_called()
+    monkeypatch.setattr(
+        bruhscreen.os,
+        "get_terminal_size",
+        lambda fd: SimpleNamespace(columns=101, lines=31),
+    )
+    monkeypatch.setattr(sys, "stdout", Mock())
+    assert screen.refresh_size()
+    assert (screen.width, screen.height) == (101, 31)
+    assert not screen.has_resized()
+    assert screen._cur_x == screen._cur_y == -1
+    curses.resizeterm.assert_called_once_with(31, 101)
+
+
+def test_unix_empty_size_remains_pending(unix_screen, monkeypatch):
+    screen_cls, curses = unix_screen
+    screen = screen_cls.__new__(screen_cls)
+    screen.width, screen.height = 80, 24
+    screen._re_sized = True
+    monkeypatch.setattr(
+        bruhscreen.os,
+        "get_terminal_size",
+        lambda fd: SimpleNamespace(columns=0, lines=0),
+    )
+    monkeypatch.setattr(sys, "stdout", Mock())
+    assert not screen.refresh_size()
+    assert screen.has_resized() and (screen.width, screen.height) == (80, 24)
+    curses.resizeterm.assert_not_called()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows backend")
+def test_windows_resize_acknowledges_new_size_and_invalidates_cursor():
+    screen = bruhscreen.Screen.__new__(bruhscreen.Screen)
+    screen._stdout = Mock()
+    screen._last_width, screen._last_height = 80, 24
+    screen._stdout.GetConsoleScreenBufferInfo.return_value = {
+        "Window": SimpleNamespace(Left=0, Top=0, Right=99, Bottom=29)
+    }
+    assert screen.has_resized()
+    assert screen.refresh_size()
+    assert (screen.width, screen.height) == (100, 30)
+    assert not screen.has_resized()
+    assert screen._current_x == screen._current_y == -1
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows backend")
 @pytest.mark.parametrize("fail_at", ["input", "mode", "initialize", None])
 def test_windows_open_restores_and_closes_partial_resources(monkeypatch, fail_at):

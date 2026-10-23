@@ -14,6 +14,7 @@ from .bruhutil.bruherrors import ScreenResizedError
 from .bruhutil.bruhffer import Buffer
 from .bruhutil.bruhscreen import Screen
 from .bruhutil.bruhtypes import EffectType
+from .resize import Resizable, ResizePolicy, _resize
 
 
 @runtime_checkable
@@ -40,6 +41,10 @@ class Animation(Protocol):
     def close(self) -> None:
         """Release owned resources, safely before start or after partial failure."""
         ...
+
+
+class ResizableAnimation(Animation, Resizable, Protocol):
+    """An Animation with a discoverable resize(width_height) viewport hook."""
 
 
 class CallbackEffect:
@@ -83,6 +88,12 @@ class FramePresenter:
         self.screen = screen
         self.last_displayed = Buffer(screen.height, screen.width).clear_buffer(val=None)
 
+    def resize(self) -> None:
+        """Invalidate the previous frame after Screen.refresh_size()."""
+        self.last_displayed = Buffer(
+            self.screen.height, self.screen.width
+        ).clear_buffer(val=None)
+
     def present(self, frame: Buffer) -> Buffer:
         self.screen.begin_frame()
         try:
@@ -119,6 +130,11 @@ class Player:
     on_complete='exit' stops after drawing an animation whose optional finished
     property is true. The default 'hold' keeps drawing and polling input. Content
     without this property (or reporting None) has no automatic completion.
+    on_resize='raise' retains ScreenResizedError behavior. 'resize' refreshes the
+    viewport and notifies optional Resizable content without restarting it.
+    Snow, plasma, fire, rain and Matrix adapt their simulation area, retaining state.
+    Other built-in rasters retain their original size and clip on shrink; extra
+    cells on growth show the composition background. Factories are never recalled. Duration and frame limits continue across resize.
     Named effects accept seed to override their selected settings on a copy;
     None preserves the settings seed. Configure instance/factory seeds directly.
     """
@@ -134,6 +150,7 @@ class Player:
         frames: int | None = None,
         duration: float | None = None,
         on_complete: Literal["hold", "exit"] = "hold",
+        on_resize: ResizePolicy = "raise",
         background: str = " ",
         settings: object | None = None,
         preset: str | None = None,
@@ -177,6 +194,9 @@ class Player:
         self.updates_per_second = updates_per_second
         self.frames = frames
         self.duration = duration
+        if on_resize not in ("raise", "resize"):
+            raise ValueError("on_resize must be 'raise' or 'resize'")
+        self.on_resize = on_resize
         self.on_complete = on_complete
         self.background = background
         self.settings = settings
@@ -262,7 +282,22 @@ class Player:
                 )
                 while self.frames is None or presented < self.frames:
                     if self.screen.has_resized():
-                        raise ScreenResizedError("The screen was resized.")
+                        if self.on_resize == "raise":
+                            raise ScreenResizedError("The screen was resized.")
+                        if self.screen.refresh_size():
+                            _resize(animation, (self.screen.width, self.screen.height))
+                            self.presenter.resize()
+                            back = Buffer(self.screen.height, self.screen.width)
+                        else:
+                            # A minimized/temporarily empty terminal must not spin,
+                            # draw, or accumulate a burst of simulation catch-up.
+                            if self._should_stop():
+                                break
+                            if deadline is not None and self.clock() >= deadline:
+                                break
+                            self.sleep(0.05)
+                            next_frame = next_tick = last_update = self.clock()
+                            continue
                     if self._should_stop():
                         break
                     now = self.clock()
@@ -323,6 +358,7 @@ def play(
     frames: int | None = None,
     duration: float | None = None,
     on_complete: Literal["hold", "exit"] = "hold",
+    on_resize: ResizePolicy = "raise",
     background: str = " ",
     settings: object | None = None,
     preset: str | None = None,
@@ -347,6 +383,9 @@ def play(
     None is unlimited; zero creates/starts no content. The first stop condition
     wins. A running callback cannot be interrupted, so a slow frame may overrun.
     on_complete selects hold/exit for content reporting a finished status.
+    on_resize='resize' opts into live reflow; 'raise' is the compatibility default.
+    Resizable content receives (width, height); other content must draw into any
+    viewport. Factories are called once and solver state remains live.
     event_handler replaces the default quit bindings; returning True exits.
     Use Player directly for a borrowed Screen, injectable clock, or presenter.
 
@@ -356,6 +395,8 @@ def play(
     """
 
     _validate_duration(duration)
+    if on_resize not in ("raise", "resize"):
+        raise ValueError("on_resize must be 'raise' or 'resize'")
     if isinstance(effect, str):
         effect_registry.resolve_settings(
             effect, settings=settings, preset=preset, seed=seed
@@ -371,6 +412,7 @@ def play(
             frames=frames,
             duration=duration,
             on_complete=on_complete,
+            on_resize=on_resize,
             background=background,
             settings=settings,
             preset=preset,

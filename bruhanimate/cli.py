@@ -49,6 +49,13 @@ def _parser() -> argparse.ArgumentParser:
     ):
         sub = commands.add_parser(command, help=description, description=description)
         sub.add_argument("effect", choices=effect_registry.names())
+        if command == "play":
+            sub.add_argument(
+                "--on-resize",
+                choices=("raise", "resize"),
+                default="raise",
+                help="Resize policy: raise an error (default) or retain state and reflow",
+            )
         if command == "record":
             sub.add_argument("output", help="Output .cast path")
             sub.add_argument("--width", type=_count, default=80)
@@ -219,5 +226,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             updates_per_second=args.updates_per_second,
             frames=args.frames,
             duration=args.duration,
+            on_resize=args.on_resize,
         )
     return 0

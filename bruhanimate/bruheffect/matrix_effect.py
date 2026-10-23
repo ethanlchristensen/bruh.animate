@@ -19,6 +19,7 @@ import string
 from bruhcolor import bruhcolored
 
 from ..bruhutil import Buffer
+from ..resize import _size
 from .base_effect import BaseEffect
 from .settings import MatrixSettings, validated_settings
 
@@ -100,6 +101,78 @@ class MatrixEffect(BaseEffect):
             for _ in range(self.buffer.height())
         ]
         self._tick = 0
+        self.__pending_cells: set[tuple[int, int]] = set()
+        self.__pending_rows: set[int] = set()
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Resize (width, height), retaining characters, colors and row timing.
+
+        Existing cells stay at their coordinates. Cropped rows/columns are lost;
+        growth starts blank and initializes new cells/row intervals on the next
+        update. The notification does not advance ticks, reset the gradient or
+        consume randomness, including when several resizes happen between ticks.
+        """
+        _size(size)
+        width, height = size
+        old_width, old_height = self.buffer.width(), self.buffer.height()
+        if size == (old_width, old_height):
+            super().resize(size)
+            return
+        rows, columns = min(height, old_height), min(width, old_width)
+        raster = Buffer(height, width).clear_buffer(val=self.background)
+        characters = [[" "] * width for _ in range(height)]
+        for y in range(rows):
+            raster.buffer[y][:columns] = self.buffer.buffer[y][:columns]
+            characters[y][:columns] = self.__buffer_characters[y][:columns]
+        new_rows = max(0, height - old_height)
+        self.__character_halts = (
+            self.__character_halts[:height]
+            + [self.__character_halt_range[0]] * new_rows
+        )
+        self.__color_halts = (
+            self.__color_halts[:height] + [self.__color_halt_range[0]] * new_rows
+        )
+        self.__character_ticks = self.__character_ticks[:height] + [0] * new_rows
+        self.__color_ticks = self.__color_ticks[:height] + [0] * new_rows
+        self.__pending_rows = {y for y in self.__pending_rows if y < height} | set(
+            range(old_height, height)
+        )
+        self.__pending_cells = {
+            (x, y) for x, y in self.__pending_cells if x < width and y < height
+        } | {
+            (x, y)
+            for y in range(height)
+            for x in range(width)
+            if x >= old_width or y >= old_height
+        }
+        self.__buffer_characters = characters
+        self.buffer = raster
+        super().resize(size)
+
+    def __initialize_growth(self) -> None:
+        """Acquire random state for newly exposed cells only during an update."""
+        for y in sorted(self.__pending_rows):
+            self.__character_halts[y] = self.rng.randint(*self.__character_halt_range)
+            self.__color_halts[y] = self.rng.randint(*self.__color_halt_range)
+        self.__pending_rows.clear()
+        # The first-ever update initializes every cell through the existing path.
+        if self._tick > 1:
+            for x, y in sorted(
+                self.__pending_cells, key=lambda cell: (cell[1], cell[0])
+            ):
+                character = self.rng.choice(self.__character_choices)
+                self.__buffer_characters[y][x] = character
+                self.buffer.put_char(
+                    x,
+                    y,
+                    bruhcolored(
+                        character,
+                        color=self.__gradient[
+                            (x - self.__color_ticks[y]) % len(self.__gradient)
+                        ],
+                    ).colored,
+                )
+        self.__pending_cells.clear()
 
     def set_properties(
         self,
@@ -186,6 +259,7 @@ class MatrixEffect(BaseEffect):
         """Advance one simulation tick; dt is measured in seconds."""
         tick = self._tick
         self._tick += 1
+        self.__initialize_growth()
         if tick == 0:
             self.__initialize_buffer()
         else:

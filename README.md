@@ -117,6 +117,201 @@ Live audio still requires matching external input for repeatability. See the
 
 ## Build a scene
 
+Layers support `region=(x, y, width, height)` clipping and independent
+`updates_per_second` rates. `TimedOverlay` shows a child for a limited duration,
+then reveals the current layers beneath it. For a complete example using all
+three features, run the native beam demo:
+
+```python
+from bruhanimate import beam_demo
+
+beam_demo.run(frames=180, fps=60)
+```
+
+It combines snow at 15 updates/sec, a lazy beam solver at 5 steps/sec, a temporary
+message, and a status display. Space pauses the solver, n/right steps, +/- changes
+speed, and q quits. See the [composition guide](docs/source/composition.rst) for
+typed API examples, clipping coordinates, timing, and ownership.
+
+For a visual composition example, run a retro TV showing colorful plasma with
+snow falling behind its opaque cabinet. A channel badge disappears after two
+seconds; the TV keeps playing until q or the frame limit:
+
+```python
+from bruhanimate import tv_demo
+
+tv_demo.run(frames=180, fps=60)
+```
+
+Or run `python -m bruhanimate.demos.tv_demo` in your terminal.
+See [the TV demo](docs/source/demos/tv_demo.rst) for the layer layout.
+
+For four windows bouncing around the terminal, each with its own effect:
+
+```python
+from bruhanimate import windows_demo
+
+windows_demo.run(frames=180, fps=60)
+```
+
+Run `python -m bruhanimate.demos.windows_demo` for continuous playback.
+Plasma, fire, snow, and Matrix rain move with their frames and overlap in a fixed
+stacking order. See [the moving windows demo](docs/source/demos/windows_demo.rst).
+
+Use `Panel` to compose your own movable windows. `size` is the content size;
+the border adds two columns and two rows. The factory receives the correct local
+buffer, and typed settings/presets remain available through `effects.snow`:
+
+```python
+from bruhanimate import Panel, SnowEffect, effects, play
+
+def build(buffer):
+    return Panel(
+        effect_factory=lambda local: SnowEffect(local, " ", effects.snow.preset("light")),
+        size=(28, 8),
+        position=(2, 2),
+        velocity=(18, 3),
+        bounds=(0, 0, buffer.width(), buffer.height()),
+        bounce=True,
+        border=True,
+        title="Snow",
+        updates_per_second=15,
+    )
+
+play(effect_factory=build, fps=60, updates_per_second=60, frames=180)
+```
+
+Type `Panel(` for named options and `effects.snow.preset(` for preset completion.
+See the [Panel guide](docs/source/panels.rst) for clipping, transparency, and ownership.
+
+## Build a dashboard
+
+`Row` and `Column` allocate `Slot`s using `Fixed` cell counts or weighted `Flex`
+space. Nest containers without calculating coordinates. Labels support typed
+alignment, clipping, wrapping, and styling; callbacks refresh text during updates.
+
+```python
+from bruhanimate import Column, Fixed, Flex, Label, Row, Slot, Spacer, StatusBar, TextStyle, play
+
+layout = Column(
+    Slot(Label("MY DASHBOARD", align="center", style=TextStyle(bold=True)), size=Fixed(1)),
+    Slot(Row(
+        Slot(Label("Main content", align="center", vertical_align="middle"), size=Flex(2)),
+        Spacer(Fixed(1)),
+        Slot(Label(lambda: "State: ready", overflow="ellipsis"), size=Fixed(16)),
+    )),
+    Slot(StatusBar("Ready", right="q quit", style=TextStyle(background=24)), size=Fixed(1)),
+    padding=1,
+    gap=1,
+)
+play(effect_factory=layout.build, fps=60, frames=180, on_resize="resize")
+```
+
+Use `Slot(effect_factory=...)` for animations that need an allocated local buffer.
+Type `Label(..., align=...)` or `overflow=...` for editor choices. Layout trees
+are single-use; create a new tree for another run. See the
+[layout and text guide](docs/source/layouts.rst) for sizing, ownership, and callbacks.
+
+Run `python -m bruhanimate.demos.dashboard_demo` for a beam solver, live statistics,
+snow background, plasma preview, and an activity log. Tab/Shift+Tab selects a panel;
+Space pauses the solver or signal. In the solver, n steps and +/- changes speed; in the signal
+panel, r remixes plasma. The focused border and status hints show where keys go.
+Arrows/Page Up/Down/Home/End scroll the solver or log. Scrolling upward in the log
+suspends following new messages; End resumes it. The log records solver progress
+and control actions, with bounded history.
+q quits. Resize the terminal while paused to see the layout reflow
+without losing the solver snapshot or queued steps. See the [dashboard demo](docs/source/demos/dashboard_demo.rst).
+
+## Keyboard bindings and focus
+
+Named keys are Literal-typed for editor completion. Character shortcuts use
+`KeyBinding.character(...)`. Attach a target to each interactive panel, then pass
+the group's handler to the existing player:
+
+```python
+from bruhanimate import (
+    Column, Fixed, FocusGroup, FocusTarget, KeyBinding, KeyBindings,
+    Label, Panel, Slot, StatusBar, play,
+)
+
+state = {"count": 0}
+
+def increment() -> None:
+    state["count"] += 1
+
+counter = FocusTarget("counter", KeyBindings(
+    KeyBinding("space", increment, description="increment"),
+))
+focus = FocusGroup(counter)
+layout = Column(
+    Slot(Panel(Label(lambda: f"Count: {state['count']}"),
+               size=(20, 3), fit=True, title="Counter", focus=counter)),
+    Slot(StatusBar("counter", center=focus.help_text, right="q quit"), size=Fixed(1)),
+)
+play(effect_factory=layout.build, event_handler=focus.handle_event,
+     frames=180, on_resize="resize")
+```
+
+Add more targets to `FocusGroup` to navigate with Tab/Shift+Tab. Bindings expose
+typed `hints()` and `help_text()` so help stays aligned with actions. Actions return
+None and consume their key; `quit=True` explicitly requests exit. FocusGroup adds
+q/Q, Escape, and Ctrl+C as global fallback quit keys. Hidden or disabled targets
+are skipped, and showing a panel does not steal focus. See the
+[keyboard guide](docs/source/keyboard.rst) for custom navigation, global bindings,
+visibility, and `EventResult` for custom routing.
+
+## Scrollable content and logs
+
+`ScrollView(animation, size=(40, 8), content_size=(100, 60))` owns an animation on
+a larger canvas. Its viewport resizes without restarting the child or consuming
+solver snapshots. `LogView` stores bounded text history and exposes the same
+scrolling controls:
+
+```python
+from bruhanimate import (
+    Column, Fixed, FocusGroup, FocusTarget, LogView, Panel, Slot, StatusBar, play,
+)
+
+log = LogView(size=(40, 6), max_lines=200, wrap="character", follow_tail=True)
+log.append("Ready\n" + "\n".join(f"Activity {i}" for i in range(20)))
+target = FocusTarget("activity", log.bindings)
+focus = FocusGroup(target)
+layout = Column(
+    Slot(Panel(log, size=(40, 6), fit=True, title="Activity", focus=target)),
+    Slot(StatusBar(lambda: "LIVE" if log.follow_tail else "HISTORY",
+                   center=focus.help_text, right="q quit"), size=Fixed(1)),
+)
+play(effect_factory=layout.build, event_handler=focus.handle_event,
+     on_resize="resize", frames=180)
+```
+
+Append messages from actions or updates. `wrap` offers typed `"character"` and
+`"none"` choices; `TextStyle` controls colors. Upward scrolling preserves your place
+as messages arrive; End or `log.follow_tail = True` returns to the newest messages.
+`max_lines` counts logical lines, and evicts the oldest excess lines. The
+[scrolling guide](docs/source/views.rst) covers resize anchoring, navigation,
+ownership, and an interactive append example.
+
+## Live terminal resize
+
+Live resize is opt-in with `on_resize="resize"` on `play`, `Player`, or
+`effects.snow.play`. Editors suggest both `"raise"` (the existing default) and
+`"resize"` through `ResizePolicy`. Layouts reflow; `Panel(..., fit=True)` follows
+its parent's allocation. Snow piles and fire follow the new bottom; plasma fills
+the new area at its current phase. Rain preserves drops and lightning lifetimes,
+and Matrix preserves characters and row timing. Cropped state is discarded;
+other built-ins retain their original simulation size and clip on shrink. Custom
+animations can implement the same typed `Resizable.resize((width, height))` hook. See the
+[resize guide](docs/source/resize.rst) for lifecycle and platform details.
+
+```python
+from bruhanimate import effects
+
+effects.fire.play(on_resize="resize", fps=60, updates_per_second=30, frames=180)
+# The same option is available on effects.rain.play() and effects.matrix.play().
+```
+
+
 Put a title over an animated background:
 
 ```python
@@ -173,6 +368,9 @@ completion or early quit.
 | Write a small custom animation | `CallbackEffect(draw, update=update)` |
 | Keep a persistent simulation raster | Subclass `BaseEffect` and implement `update(dt)` |
 | Combine backgrounds, labels, and overlays | `Scene`, `Layer`, and `ImageEffect` |
+| Pan a board or larger animation canvas | `ScrollView` |
+| Browse bounded activity history | `LogView` |
+| Route keys to a selected panel | `FocusTarget` and `FocusGroup` |
 | Animate a solver or recorded states | `Playback` and `draw_grid` |
 | Supply your own Screen or clock | `Player` |
 
