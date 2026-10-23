@@ -17,8 +17,10 @@ limitations under the License.
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Type
+
+from .settings import EffectSettings
 
 if TYPE_CHECKING:
     from ..bruhutil.bruhffer import Buffer
@@ -84,13 +86,25 @@ class EffectRegistry:
         description: str = "",
         presets: dict[str, Any] | None = None,
     ) -> None:
-        """Register an effect under *name*."""
+        """Register an effect, validating and copying its preset configurations.
+
+        Custom settings classes need not inherit EffectSettings. Their instances
+        are type-checked; built-in EffectSettings also validate field values.
+        """
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("An effect name must be a nonempty string")
+        if settings_cls is not None and not isinstance(settings_cls, type):
+            raise TypeError("settings_cls must be a class or None")
+        for preset_name, configuration in (presets or {}).items():
+            if not isinstance(preset_name, str) or not preset_name.strip():
+                raise ValueError("A preset name must be a nonempty string")
+            self._validate_settings(name, settings_cls, configuration)
         self._registry[name] = EffectEntry(
             name=name,
             effect_cls=effect_cls,
             settings_cls=settings_cls,
             description=description,
-            presets=presets or {},
+            presets=deepcopy(presets or {}),
         )
 
     # ------------------------------------------------------------------
@@ -115,8 +129,59 @@ class EffectRegistry:
         return dict(self._registry)
 
     def presets(self, name: str) -> dict[str, Any]:
-        """Return the preset dict for the named effect."""
-        return dict(self.get(name).presets)
+        """Return independent settings copies keyed by preset name.
+
+        For example, presets('snow')['light'] is SnowSettings(intensity=0.005,
+        wind=0.0, show_info=False, collision=False). Editing it is safe.
+        """
+        return deepcopy(self.get(name).presets)
+
+    @staticmethod
+    def _validate_settings(name: str, expected: type | None, settings: object) -> None:
+        if expected is None:
+            raise TypeError(f"Effect '{name}' does not accept settings")
+        if not isinstance(settings, expected):
+            raise TypeError(
+                f"Effect '{name}' requires {expected.__name__}, "
+                f"got {type(settings).__name__}"
+            )
+        if isinstance(settings, EffectSettings):
+            settings.validate()
+
+    def resolve_settings(
+        self,
+        name: str,
+        *,
+        settings: object | None = None,
+        preset: str | None = None,
+        seed: int | None = None,
+    ) -> object | None:
+        """Validate a selection without constructing an effect or opening resources.
+
+        Explicit settings override a known preset. Unknown presets always raise
+        KeyError with available names. Preset values are copied before use.
+        None leaves the effect constructor responsible for its defaults.
+        A supplied seed overrides the selected EffectSettings on an independent
+        copy. None preserves the seed in the selected settings or preset.
+        """
+        entry = self.get(name)
+        if preset is not None and preset not in entry.presets:
+            raise KeyError(
+                f"Preset '{preset}' not found for '{name}'. "
+                f"Available: {sorted(entry.presets)}"
+            )
+        if settings is None and preset is not None:
+            settings = deepcopy(entry.presets[preset])
+        if settings is not None:
+            self._validate_settings(name, entry.settings_cls, settings)
+        if seed is not None:
+            if entry.settings_cls is None or not issubclass(
+                entry.settings_cls, EffectSettings
+            ):
+                raise TypeError(f"Effect '{name}' does not accept a seed override")
+            selected = settings if settings is not None else entry.settings_cls()
+            settings = replace(deepcopy(selected), seed=seed)
+        return settings
 
     def __contains__(self, name: str) -> bool:
         return name in self._registry
@@ -135,8 +200,9 @@ class EffectRegistry:
         buffer: "Buffer",
         background: str,
         *,
-        settings: Any = None,
+        settings: object | None = None,
         preset: str | None = None,
+        seed: int | None = None,
     ) -> "BaseEffect":
         """
         Instantiate the named effect.
@@ -155,16 +221,14 @@ class EffectRegistry:
             A ready-to-use ``BaseEffect`` instance.
         """
         entry = self.get(name)
-
-        if settings is None and preset is not None:
-            if preset not in entry.presets:
-                raise KeyError(
-                    f"Preset '{preset}' not found for '{name}'. "
-                    f"Available: {sorted(entry.presets)}"
-                )
-            settings = deepcopy(entry.presets[preset])
-
-        if settings is not None and entry.settings_cls is not None:
+        settings = self.resolve_settings(
+            name, settings=settings, preset=preset, seed=seed
+        )
+        if not isinstance(background, str):
+            raise TypeError("background must be a string")
+        if not background:
+            raise ValueError("background must not be empty")
+        if settings is not None:
             return entry.effect_cls(buffer, background, settings=settings)
         return entry.effect_cls(buffer, background)
 
@@ -235,8 +299,6 @@ def _populate():
         presets={
             "right": OffsetSettings(direction="right"),
             "left": OffsetSettings(direction="left"),
-            "up": OffsetSettings(direction="up"),
-            "down": OffsetSettings(direction="down"),
         },
     )
     effect_registry.register(

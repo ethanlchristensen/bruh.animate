@@ -47,6 +47,74 @@ Press **q**, **Escape**, or **Ctrl+C** to quit and restore the terminal.
 `fps` controls presentation; `updates_per_second` controls simulation ticks.
 Set `frames=120` to limit the number of presented frames.
 
+## Discover effects and presets
+
+`light` is a named `SnowSettings` configuration: intensity `0.005`, wind `0.0`,
+with collision and info display disabled. Discover the choices and their values:
+
+```python
+from bruhanimate import effects
+
+print(effects.names())             # All registered effects
+print(effects.snow.presets())      # light, moderate, blizzard, windy + settings
+print(effects.snow.preset("light")) # A fresh SnowSettings copy
+print(effects.snow.defaults())     # Default settings, with typed fields
+```
+
+For editor completion of effects, effect-specific presets, and settings, use
+the typed catalog. It runs through the same player as `play("snow", ...)`:
+
+```python
+from bruhanimate import effects
+
+effects.snow.play(preset="light", fps=60, updates_per_second=30, duration=10)
+```
+
+`duration` limits wall-clock seconds after startup, including paused/held time.
+The first duration, frame, completion, or quit condition wins. Zero starts no
+effect; `play` still opens/restores its Screen. Slow callbacks can overrun the
+deadline. Built-in settings validate types, ranges, and choices before use.
+
+Explore without writing a script or opening an animation:
+
+```sh
+bruhanimate list
+bruhanimate presets snow
+bruhanimate info snow
+bruhanimate play snow --preset light --duration 10 --set wind=0.4
+```
+
+`python -m bruhanimate` provides the same CLI. In a source checkout, prefix either
+command with `uv run --locked`. See the [discovery guide](docs/source/discovery.rst)
+for configuration, CLI options, typing, and custom registry entries.
+
+## Capture and record
+
+Use a seed to reproduce an effect with the same settings, size, update sequence,
+and dependency versions. Each effect has independent Python/NumPy randomness.
+The typed catalog also exposes headless capture and recording:
+
+```python
+from bruhanimate import Frame, effects
+
+def inspect(frame: Frame) -> None:
+    print(frame.index, frame.time, frame.text())
+
+effects.snow.capture(on_frame=inspect, preset="light", seed=42,
+                     width=40, height=12, frames=4)
+```
+
+```sh
+bruhanimate record snow snow.cast --preset light --seed 42 --duration 5
+```
+
+Capture uses virtual time and requires a frame or duration bound. It streams
+immutable snapshots through the existing player without opening a terminal or
+sleeping. `effects.snow.record("snow.cast", ...)` writes asciicast v2 files;
+existing files are protected unless `overwrite=True` / `--overwrite` is set.
+Live audio still requires matching external input for repeatability. See the
+[capture guide](docs/source/capture.rst) for timing, ownership, and format details.
+
 ## Build a scene
 
 Put a title over an animated background:
@@ -136,10 +204,9 @@ and playback controls. Demos expose `run(frames=None, fps=...)` for use from Pyt
 | [Migration to 1.0](https://ethanlchristensen.github.io/bruh.animate/migration.html) | Replacing the 0.2.x renderer APIs |
 | [Release process](https://ethanlchristensen.github.io/bruh.animate/releasing.html) | Dev-to-main workflow, versions, tags, and publishing |
 
-Resize currently ends playback after cleanup; automatic reflow and recording/export
-remain planned work. The terminal demo is a pipe-based command console, not a PTY
-emulator. See the [roadmap](https://github.com/ethanlchristensen/bruh.animate/blob/main/docs/ROADMAP.md)
-for implementation status and remaining Advent of Code helpers.
+Resize currently ends playback after cleanup; automatic reflow and image/video
+export remain planned work. Headless frame capture and `.cast` export are supported.
+The terminal demo is a pipe-based command console, not a PTY emulator.
 
 ## Development
 
@@ -151,6 +218,7 @@ cd bruh.animate
 git switch dev
 uv sync --locked --group docs
 uv run --locked ruff check .
+uv run --locked mypy
 uv run --locked pytest
 uv run --locked python scripts/check_examples.py
 uv run --locked --group docs python scripts/build_docs.py

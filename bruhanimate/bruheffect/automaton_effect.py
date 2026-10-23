@@ -19,7 +19,7 @@ from bruhcolor import bruhcolored as bc
 
 from ..bruhutil import Buffer
 from .base_effect import BaseEffect
-from .settings import AutomatonSettings
+from .settings import AutomatonSettings, validated_settings
 
 
 def _heat(r: float) -> int:
@@ -48,10 +48,10 @@ class AutomatonEffect(BaseEffect):
     """
 
     def __init__(
-        self, buffer: Buffer, background: str, settings: AutomatonSettings = None
+        self, buffer: Buffer, background: str, settings: AutomatonSettings | None = None
     ):
-        super().__init__(buffer, background)
-        s = settings or AutomatonSettings()
+        s = validated_settings(settings, AutomatonSettings)
+        super().__init__(buffer, background, seed=s.seed)
 
         self.color = s.color
         self.char = s.char

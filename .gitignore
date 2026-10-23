@@ -150,3 +150,7 @@ docs/build/
 
 # Local code intelligence indexes
 .codegraph/
+
+# Local AI-session planning and progress notes
+/docs/DESIGN_PROPOSAL.md
+/docs/ROADMAP.md

@@ -14,14 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import random
 import string
 
 from bruhcolor import bruhcolored
 
 from ..bruhutil import Buffer
 from .base_effect import BaseEffect
-from .settings import MatrixSettings
+from .settings import MatrixSettings, validated_settings
 
 
 class MatrixEffect(BaseEffect):
@@ -30,7 +29,7 @@ class MatrixEffect(BaseEffect):
     """
 
     def __init__(
-        self, buffer: Buffer, background: str, settings: MatrixSettings = None
+        self, buffer: Buffer, background: str, settings: MatrixSettings | None = None
     ):
         """
         Initializes the MatrixEffect.
@@ -40,8 +39,8 @@ class MatrixEffect(BaseEffect):
             background (str): Character or string used for the background.
             settings (MatrixSettings, optional): Configuration for the matrix effect. Defaults to None.
         """
-        super(MatrixEffect, self).__init__(buffer, background)
-        s = settings or MatrixSettings()
+        s = validated_settings(settings, MatrixSettings)
+        super(MatrixEffect, self).__init__(buffer, background, seed=s.seed)
 
         self.__character_choices = (
             string.ascii_letters + "1234567890!@#$%^&*()_+-=<>,.:\";'{}[]?/"
@@ -85,13 +84,13 @@ class MatrixEffect(BaseEffect):
             for _ in range(self.__gradient_length)
         ]
         self.__character_halts = [
-            random.randint(
+            self.rng.randint(
                 self.__character_halt_range[0], self.__character_halt_range[1]
             )
             for _ in range(self.buffer.height())
         ]
         self.__color_halts = [
-            random.randint(self.__color_halt_range[0], self.__color_halt_range[1])
+            self.rng.randint(self.__color_halt_range[0], self.__color_halt_range[1])
             for _ in range(self.buffer.height())
         ]
         self.__character_ticks = [0 for _ in range(self.buffer.height())]
@@ -134,13 +133,13 @@ class MatrixEffect(BaseEffect):
             for _ in range(self.__gradient_length)
         ]
         self.__character_halts = [
-            random.randint(
+            self.rng.randint(
                 self.__character_halt_range[0], self.__character_halt_range[1]
             )
             for _ in range(self.buffer.height())
         ]
         self.__color_halts = [
-            random.randint(self.__color_halt_range[0], self.__color_halt_range[1])
+            self.rng.randint(self.__color_halt_range[0], self.__color_halt_range[1])
             for _ in range(self.buffer.height())
         ]
 
@@ -170,7 +169,9 @@ class MatrixEffect(BaseEffect):
     def __initialize_buffer(self):
         for y in range(self.buffer.height()):
             for x in range(self.buffer.width()):
-                self.__buffer_characters[y][x] = random.choice(self.__character_choices)
+                self.__buffer_characters[y][x] = self.rng.choice(
+                    self.__character_choices
+                )
             for x in range(self.buffer.width()):
                 self.buffer.put_char(
                     x,
@@ -191,18 +192,18 @@ class MatrixEffect(BaseEffect):
             for y in range(self.buffer.height()):
                 if (
                     tick % self.__character_halts[y] == 0
-                    and random.random() < self.__character_randomness_one
+                    and self.rng.random() < self.__character_randomness_one
                 ):
                     self.__character_ticks[y] += 1
                     for x in range(self.buffer.width()):
-                        if random.random() < self.__character_randomness_two:
-                            self.__buffer_characters[y][x] = random.choice(
+                        if self.rng.random() < self.__character_randomness_two:
+                            self.__buffer_characters[y][x] = self.rng.choice(
                                 self.__character_choices
                             )
 
                 if (
                     tick % self.__color_halts[y] == 0
-                    and random.random() < self.__color_randomness
+                    and self.rng.random() < self.__color_randomness
                 ):
                     self.__color_ticks[y] += 1
                     for x in range(self.buffer.width()):

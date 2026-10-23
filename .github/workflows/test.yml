@@ -40,6 +40,7 @@ jobs:
       - run: uv lock --check
       - run: uv sync --locked
       - run: uv run --no-sync ruff check .
+      - run: uv run --no-sync mypy
       - run: uv run --no-sync python scripts/release_check.py
 
   tests:

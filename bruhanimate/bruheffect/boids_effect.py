@@ -19,7 +19,7 @@ from bruhcolor import bruhcolored as bc
 
 from ..bruhutil import Buffer
 from .base_effect import BaseEffect
-from .settings import BoidsSettings
+from .settings import BoidsSettings, validated_settings
 
 
 def _heat(r: float) -> int:
@@ -47,9 +47,11 @@ class BoidsEffect(BaseEffect):
     cool (slow) when *color* is enabled.
     """
 
-    def __init__(self, buffer: Buffer, background: str, settings: BoidsSettings = None):
-        super().__init__(buffer, background)
-        s = settings or BoidsSettings()
+    def __init__(
+        self, buffer: Buffer, background: str, settings: BoidsSettings | None = None
+    ):
+        s = validated_settings(settings, BoidsSettings)
+        super().__init__(buffer, background, seed=s.seed)
 
         self.color = s.color
         self.char = s.char
@@ -58,7 +60,7 @@ class BoidsEffect(BaseEffect):
         self._w = buffer.width()
         self._h = buffer.height()
 
-        rng = np.random.default_rng()
+        rng = self.np_rng
         n = s.num_boids
         self._pos = np.column_stack(
             [
@@ -96,7 +98,7 @@ class BoidsEffect(BaseEffect):
         cohesion = np.where(has_nbr, (pos_sum / n_nbr - pos) * 0.003, 0.0)
 
         new_vel = vel + sep + align + cohesion
-        new_vel += np.random.uniform(-0.02, 0.02, new_vel.shape)
+        new_vel += self.np_rng.uniform(-0.02, 0.02, new_vel.shape)
 
         speeds = np.linalg.norm(new_vel, axis=1, keepdims=True).clip(1e-8)
         new_vel = np.where(

@@ -28,7 +28,7 @@ from bruhcolor import bruhcolored as bc
 
 from ..bruhutil.bruhffer import Buffer
 from .base_effect import BaseEffect
-from .settings import AudioSettings
+from .settings import AudioSettings, validated_settings
 
 _SAMPLE_RATE = 44100
 _CHUNK = 1024
@@ -43,18 +43,18 @@ _GRADIENT_CHARS = " .:-=+*#%@"
 _STATEFUL_MODES = {"spectrum", "rain", "waveform"}
 
 
-def _make_bolt(width: int, height: int) -> list[tuple[int, int]]:
+def _make_bolt(width: int, height: int, rng: random.Random) -> list[tuple[int, int]]:
     """Generate a branching lightning bolt path from a random top position downward."""
     path: list[tuple[int, int]] = []
-    bx = random.randint(width // 6, 5 * width // 6)
+    bx = rng.randint(width // 6, 5 * width // 6)
     for y in range(height):
-        bx = max(0, min(width - 1, bx + random.randint(-2, 2)))
+        bx = max(0, min(width - 1, bx + rng.randint(-2, 2)))
         path.append((bx, y))
-        if random.random() < 0.12:
+        if rng.random() < 0.12:
             brx, bry = bx, y
-            direction = random.choice([-1, 1])
-            for _ in range(random.randint(3, 10)):
-                brx = max(0, min(width - 1, brx + direction + random.randint(-1, 1)))
+            direction = rng.choice([-1, 1])
+            for _ in range(rng.randint(3, 10)):
+                brx = max(0, min(width - 1, brx + direction + rng.randint(-1, 1)))
                 bry += 1
                 if bry >= height:
                     break
@@ -121,7 +121,9 @@ class AudioEffect(BaseEffect):
         pip install bruhanimate[audio]
     """
 
-    def __init__(self, buffer: Buffer, background: str, settings: AudioSettings = None):
+    def __init__(
+        self, buffer: Buffer, background: str, settings: AudioSettings | None = None
+    ):
         """
         Initialize the audio effect.
 
@@ -130,8 +132,8 @@ class AudioEffect(BaseEffect):
             background (str): Character or string to use for the background.
             settings (AudioSettings, optional): Configuration for the audio effect.
         """
-        super().__init__(buffer, background)
-        s = settings or AudioSettings()
+        s = validated_settings(settings, AudioSettings)
+        super().__init__(buffer, background, seed=s.seed)
 
         self.mode = s.mode
         self.bar_char = s.bar_char
@@ -168,7 +170,7 @@ class AudioEffect(BaseEffect):
         self._sine_phases: np.ndarray = np.zeros(8)
 
         # starfield state — columns: norm-x, norm-y, z-depth
-        rng = np.random.default_rng()
+        rng = self.np_rng
         self._stars: np.ndarray = np.column_stack(
             [
                 rng.uniform(-1.0, 1.0, _N_STARS),
@@ -220,10 +222,10 @@ class AudioEffect(BaseEffect):
         # bounce state
         self._balls: list[dict] = [
             {
-                "x": random.uniform(0, self._width),
-                "y": random.uniform(0, self._height),
-                "vx": random.choice([-1, 1]) * random.uniform(0.4, 1.2),
-                "vy": random.choice([-1, 1]) * random.uniform(0.25, 0.7),
+                "x": self.rng.uniform(0, self._width),
+                "y": self.rng.uniform(0, self._height),
+                "vx": self.rng.choice([-1, 1]) * self.rng.uniform(0.4, 1.2),
+                "vy": self.rng.choice([-1, 1]) * self.rng.uniform(0.25, 0.7),
                 "band": i,
                 "trail": deque(maxlen=_TRAIL_LEN),
             }
@@ -636,9 +638,9 @@ class AudioEffect(BaseEffect):
             x0 = i * cols_per_bar
             x1 = min(x0 + cols_per_bar, self._width)
             for col in range(x0, x1):
-                if random.random() < mag:
+                if self.rng.random() < mag:
                     color = self._height_color(mag) if self.color else None
-                    char = random.choice(_RAIN_CHARS)
+                    char = self.rng.choice(_RAIN_CHARS)
                     top[col] = bc(char, color=color) if color is not None else char
 
         # Lightning overlay — less frequent than standalone lightning mode
@@ -647,7 +649,10 @@ class AudioEffect(BaseEffect):
             self._lightning_cooldown -= 1
         if self._lightning_cooldown == 0 and energy > 0.15:
             self._lightning_bolts.append(
-                (_make_bolt(self._width, self._height), random.randint(2, 4))
+                (
+                    _make_bolt(self._width, self._height, self.rng),
+                    self.rng.randint(2, 4),
+                )
             )
             self._lightning_cooldown = max(20, int(70 - energy * 45))
 
@@ -837,7 +842,7 @@ class AudioEffect(BaseEffect):
         reset = self._stars[:, 2] <= 0.0
         if reset.any():
             n = int(reset.sum())
-            rng = np.random.default_rng()
+            rng = self.np_rng
             self._stars[reset, 0] = rng.uniform(-1.0, 1.0, n)
             self._stars[reset, 1] = rng.uniform(-1.0, 1.0, n)
             self._stars[reset, 2] = 1.0
@@ -864,14 +869,14 @@ class AudioEffect(BaseEffect):
             self._fw_cooldown -= 1
 
         if self._fw_cooldown == 0 and energy > 0.05:
-            bx = random.randint(self._width // 5, 4 * self._width // 5)
-            by = random.randint(self._height // 5, 3 * self._height // 5)
+            bx = self.rng.randint(self._width // 5, 4 * self._width // 5)
+            by = self.rng.randint(self._height // 5, 3 * self._height // 5)
             n = int(18 + energy * 35)
             dominant = int(np.argmax(bars))
             color_ratio = dominant / max(1, len(bars) - 1)
             for _ in range(n):
-                angle = random.uniform(0, 2 * math.pi)
-                spd = random.uniform(0.4, 1.8 + energy * 2.0)
+                angle = self.rng.uniform(0, 2 * math.pi)
+                spd = self.rng.uniform(0.4, 1.8 + energy * 2.0)
                 self._fw_particles.append(
                     {
                         "x": float(bx),
@@ -879,9 +884,9 @@ class AudioEffect(BaseEffect):
                         "vx": math.cos(angle) * spd,
                         "vy": math.sin(angle) * spd * 0.45,
                         "life": 1.0,
-                        "decay": random.uniform(0.04, 0.12),
+                        "decay": self.rng.uniform(0.04, 0.12),
                         "color_ratio": color_ratio,
-                        "ch": random.choice(_FW_CHARS),
+                        "ch": self.rng.choice(_FW_CHARS),
                     }
                 )
             self._fw_cooldown = max(3, int(18 - energy * 14))
@@ -1002,7 +1007,10 @@ class AudioEffect(BaseEffect):
 
         if self._lightning_cooldown == 0 and energy > 0.08:
             self._lightning_bolts.append(
-                (_make_bolt(self._width, self._height), random.randint(2, 5))
+                (
+                    _make_bolt(self._width, self._height, self.rng),
+                    self.rng.randint(2, 5),
+                )
             )
             self._lightning_cooldown = max(4, int(28 - energy * 22))
 
@@ -1107,8 +1115,8 @@ class AudioEffect(BaseEffect):
             )
 
             # Low jitter: tight orbits for a cleaner look
-            jitter_theta = np.random.uniform(-0.06, 0.06, n_particles)
-            jitter_r = np.random.uniform(-base_r * 0.025, base_r * 0.025, n_particles)
+            jitter_theta = self.np_rng.uniform(-0.06, 0.06, n_particles)
+            jitter_r = self.np_rng.uniform(-base_r * 0.025, base_r * 0.025, n_particles)
             thetas = base_thetas + jitter_theta
             rs = r + jitter_r
 
@@ -1119,7 +1127,7 @@ class AudioEffect(BaseEffect):
 
             if steps > 1:
                 rs_ext = rs[:, None] + np.linspace(0, spike_amp, steps)
-                curve_dirs = np.random.uniform(-0.15, 0.15, (n_particles, 1))
+                curve_dirs = self.np_rng.uniform(-0.15, 0.15, (n_particles, 1))
                 thetas_ext = thetas[:, None] + (
                     curve_dirs * np.linspace(0, 1.0, steps) * mag
                 )
@@ -1179,8 +1187,8 @@ class AudioEffect(BaseEffect):
                 0, 2 * math.pi, n_particles, endpoint=False
             )
 
-            jitter_theta = np.random.uniform(-0.06, 0.06, n_particles)
-            jitter_r = np.random.uniform(-base_r * 0.025, base_r * 0.025, n_particles)
+            jitter_theta = self.np_rng.uniform(-0.06, 0.06, n_particles)
+            jitter_r = self.np_rng.uniform(-base_r * 0.025, base_r * 0.025, n_particles)
             thetas = base_thetas + jitter_theta
             rs = r + jitter_r
 
@@ -1191,7 +1199,7 @@ class AudioEffect(BaseEffect):
 
             if steps > 1:
                 rs_ext = rs[:, None] + np.linspace(0, spike_amp, steps)
-                curve_dirs = np.random.uniform(-0.15, 0.15, (n_particles, 1))
+                curve_dirs = self.np_rng.uniform(-0.15, 0.15, (n_particles, 1))
                 thetas_ext = thetas[:, None] + (
                     curve_dirs * np.linspace(0, 1.0, steps) * mag
                 )
@@ -1420,30 +1428,30 @@ class AudioEffect(BaseEffect):
             self._comet_cooldown -= 1
 
         if self._comet_cooldown == 0 and energy > 0.03:
-            edge = random.randint(0, 3)
+            edge = self.rng.randint(0, 3)
             speed_mult = 1.0 + energy * 2.5
             if edge == 0:
-                x, y = 0.0, float(random.randint(0, self._height - 1))
-                vx = random.uniform(1.5, 3.5) * speed_mult
-                vy = random.uniform(-0.6, 0.6)
+                x, y = 0.0, float(self.rng.randint(0, self._height - 1))
+                vx = self.rng.uniform(1.5, 3.5) * speed_mult
+                vy = self.rng.uniform(-0.6, 0.6)
             elif edge == 1:
                 x, y = (
                     float(self._width - 1),
-                    float(random.randint(0, self._height - 1)),
+                    float(self.rng.randint(0, self._height - 1)),
                 )
-                vx = random.uniform(-3.5, -1.5) * speed_mult
-                vy = random.uniform(-0.6, 0.6)
+                vx = self.rng.uniform(-3.5, -1.5) * speed_mult
+                vy = self.rng.uniform(-0.6, 0.6)
             elif edge == 2:
-                x, y = float(random.randint(0, self._width - 1)), 0.0
-                vx = random.uniform(-0.6, 0.6)
-                vy = random.uniform(0.5, 1.8) * speed_mult
+                x, y = float(self.rng.randint(0, self._width - 1)), 0.0
+                vx = self.rng.uniform(-0.6, 0.6)
+                vy = self.rng.uniform(0.5, 1.8) * speed_mult
             else:
                 x, y = (
-                    float(random.randint(0, self._width - 1)),
+                    float(self.rng.randint(0, self._width - 1)),
                     float(self._height - 1),
                 )
-                vx = random.uniform(-0.6, 0.6)
-                vy = random.uniform(-1.8, -0.5) * speed_mult
+                vx = self.rng.uniform(-0.6, 0.6)
+                vy = self.rng.uniform(-1.8, -0.5) * speed_mult
 
             dominant = int(np.argmax(bars))
             self._comets.append(

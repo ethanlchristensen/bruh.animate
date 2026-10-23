@@ -14,13 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import random
-
 from bruhcolor import bruhcolored
 
 from ..bruhutil import FLAKE_WEIGHT_CHARS, SNOWFLAKE_COLORS, SNOWFLAKE_TYPES, Buffer
 from .base_effect import BaseEffect
-from .settings import SnowSettings
+from .settings import SnowSettings, validated_settings
 
 
 class SnowEffect(BaseEffect):
@@ -28,7 +26,9 @@ class SnowEffect(BaseEffect):
     A class to represent a snow effect.
     """
 
-    def __init__(self, buffer: Buffer, background: str, settings: SnowSettings = None):
+    def __init__(
+        self, buffer: Buffer, background: str, settings: SnowSettings | None = None
+    ):
         """
         Initializes the SnowEffect.
 
@@ -37,8 +37,8 @@ class SnowEffect(BaseEffect):
             background (str): Character or string used for the background of the effect.
             settings (SnowSettings, optional): Configuration for the snow effect. Defaults to None.
         """
-        super(SnowEffect, self).__init__(buffer, background)
-        s = settings or SnowSettings()
+        s = validated_settings(settings, SnowSettings)
+        super(SnowEffect, self).__init__(buffer, background, seed=s.seed)
 
         self.image_present = False
         self.collision = s.collision
@@ -127,9 +127,9 @@ class SnowEffect(BaseEffect):
         Args:
             x (int): The x position to spawn the snowflake at.
         """
-        snowflake_type = random.choice(list(SNOWFLAKE_TYPES.keys()))
+        snowflake_type = self.rng.choice(list(SNOWFLAKE_TYPES.keys()))
         snowflake_char = bruhcolored(snowflake_type, SNOWFLAKE_COLORS[snowflake_type])
-        drift_bias = self.wind + random.uniform(-0.35, 0.35)
+        drift_bias = self.wind + self.rng.uniform(-0.35, 0.35)
         self.flakes.append(
             {
                 "x": x,
@@ -206,7 +206,7 @@ class SnowEffect(BaseEffect):
     def update(self, dt: float) -> None:
         """Advance one simulation tick; dt is measured in seconds."""
         for idx in range(self.buffer.width()):
-            if random.random() < self.snow_intensity:
+            if self.rng.random() < self.snow_intensity:
                 self.generate_snowflake(idx)
 
         new_flakes = []
@@ -228,12 +228,12 @@ class SnowEffect(BaseEffect):
             else:
                 snowflake["drift_bias"] = max(
                     -2.0,
-                    min(2.0, snowflake["drift_bias"] + random.uniform(-0.08, 0.08)),
+                    min(2.0, snowflake["drift_bias"] + self.rng.uniform(-0.08, 0.08)),
                 )
                 bias = snowflake["drift_bias"]
                 left_w = max(0.05, 1.0 - bias)
                 right_w = max(0.05, 1.0 + bias)
-                dx = random.choices([-1, 0, 1], weights=[left_w, 1.2, right_w])[0]
+                dx = self.rng.choices([-1, 0, 1], weights=[left_w, 1.2, right_w])[0]
 
                 new_x = max(0, min(self.buffer.width() - 1, x + dx))
                 new_y = y + 1

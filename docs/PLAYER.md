@@ -14,7 +14,10 @@ play("snow", preset="light", fps=60, updates_per_second=30)
 Use `effect_factory=build` when the animation needs an allocated screen-sized
 `Buffer`. `build(buffer)` returns an animation. Pass either an effect name/object
 or a factory, never both. `settings` and `preset` apply only to named effects;
-explicit settings take precedence over a preset.
+explicit settings take precedence over a known preset. Unknown presets and
+mismatched settings fail before a terminal opens. Use `effects.names()`,
+`effects.snow.presets()` and `effects.snow.play(...)` for discovery and typed
+preset/settings completion; see [the discovery guide](source/discovery.rst).
 
 `Player(screen, animation, ...)` borrows an existing Screen. `play(...)` opens and
 restores its own Screen with `Screen.show`. Neither pauses for an end prompt.
@@ -75,7 +78,13 @@ this release does not convert all simulation equations to seconds.
 
 `frames` counts presentations, not updates. `frames=0` creates no effect and
 opens no effect resources; `play` still opens/restores a screen. `frames=None`
-runs until quit. Rates must be positive and finite, and dimensions non-empty.
+leaves the frame limit unset. `duration` limits wall-clock seconds after startup,
+including paused or completed-held time. It is finite and non-negative, or `None`
+for no duration limit. `duration=0` starts no effect, like `frames=0`; `play` still
+opens/restores its Screen. The first stop condition wins. Sleeps are capped at
+the deadline, but synchronous callbacks cannot be interrupted and may overrun.
+Duration expiry performs the same owned-content cleanup as quitting.
+Rates must be positive and finite, and dimensions non-empty.
 
 ## Composition
 
@@ -108,6 +117,38 @@ order. A child whose start fails is also closed. Cleanup continues if another
 child's close raises. Duplicate direct ownership is rejected. Do not share one
 animation instance between scenes or players; immutable model data can be shared.
 Create new scenes to change membership. All children currently use one tick rate.
+
+## Seeded headless rendering
+
+Every built-in settings dataclass includes `seed: int | None`. Non-negative
+seeds initialize independent Python/NumPy streams; `None` uses fresh entropy.
+Named effects also accept a seed override through `play`, `Player`, `capture`,
+`record`, and `effect_registry.create`. Configure instance/factory seeds at
+construction. Overrides copy the selected configuration and preserve presets.
+
+```python
+from bruhanimate import Frame, effects
+
+def inspect(frame: Frame) -> None:
+    print(frame.time, frame.text())
+
+effects.snow.capture(on_frame=inspect, seed=42, preset="light",
+                     width=40, height=12, frames=4)
+```
+
+`capture` uses the Player loop with a virtual clock and immutable frame snapshots.
+It requires `frames` or `duration`, uses positive FPS, generates no input/resize
+events, and exits on completion by default. Duration is virtual seconds after
+startup; rendering/callback cost does not affect it. The first frame is at zero
+after one update, and no offline fixed ticks are dropped. Callbacks are synchronous;
+retaining frames is optional. Ownership and failure cleanup match Player.
+Headless rendering does not suppress an animation's devices or external inputs.
+
+`effects.snow.record("snow.cast", seed=42, duration=5)` streams asciicast v2
+changed-cell output. Existing paths require `overwrite=True`; borrowed text
+streams stay open. The timeline ends at the last presented frame. No input,
+environment, or audio is recorded. See [capture and recording](source/capture.rst)
+for reproducibility conditions, cell restrictions, and the complete API.
 
 ## Ownership, input, and failures
 
@@ -146,7 +187,7 @@ Scene completes when all finite children finish, ignoring endless backgrounds.
 
 ## Next steps
 
-Duration limits, masks, independent general layer clocks, character-assembly motion,
-recording/export, and resize reconstruction remain future work. Static collision
+Masks, independent general layer clocks, character-assembly motion,
+image/video export, and resize reconstruction remain future work. Static collision
 configuration on rain/snow/fire remains explicit; Scene does not infer physics
-from painted layers. See [the roadmap](ROADMAP.md).
+from painted layers.

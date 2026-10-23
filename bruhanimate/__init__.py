@@ -6,6 +6,7 @@ for layered content and lazy solver snapshots. Demo modules import on demand.
 
 from importlib import import_module
 
+from . import effects
 from .bruheffect import (
     TWINKLE_SPEC,
     AudioEffect,
@@ -78,6 +79,8 @@ from .bruhutil import (
     get_image,
     text_to_image,
 )
+from .capture import Frame, capture, record
+from .effects import EffectName
 from .grid import GridViewport, draw_grid
 from .playback import Playback
 from .player import (
@@ -89,7 +92,7 @@ from .player import (
 )
 from .scene import ImageEffect, Layer, Scene
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __valid_demos__ = [
     "audio_demo",
     "automaton_demo",
@@ -133,12 +136,17 @@ def __dir__():
 
 
 __all__ = [
+    "effects",
+    "EffectName",
     "Playback",
     "GridViewport",
     "draw_grid",
     "Animation",
     "CallbackEffect",
     "FramePresenter",
+    "Frame",
+    "capture",
+    "record",
     "Player",
     "Scene",
     "Layer",

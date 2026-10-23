@@ -14,14 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import random
-
 import numpy as np
 from bruhcolor import bruhcolored as bc
 
 from ..bruhutil import Buffer
 from .base_effect import BaseEffect
-from .settings import SandSettings
+from .settings import SandSettings, validated_settings
 
 
 def _heat(r: float) -> int:
@@ -46,9 +44,11 @@ class SandEffect(BaseEffect):
     bottom row to keep the simulation flowing indefinitely.
     """
 
-    def __init__(self, buffer: Buffer, background: str, settings: SandSettings = None):
-        super().__init__(buffer, background)
-        s = settings or SandSettings()
+    def __init__(
+        self, buffer: Buffer, background: str, settings: SandSettings | None = None
+    ):
+        s = validated_settings(settings, SandSettings)
+        super().__init__(buffer, background, seed=s.seed)
 
         self.color = s.color
         self.char = s.char
@@ -70,7 +70,7 @@ class SandEffect(BaseEffect):
 
         # Spawn new particles at the top
         for col in range(self._w):
-            if random.random() < self.spawn_rate and self._grid[0, col] == 0:
+            if self.rng.random() < self.spawn_rate and self._grid[0, col] == 0:
                 self._grid[0, col] = 1
 
         # Update: process non-empty cells bottom-to-top
@@ -85,7 +85,7 @@ class SandEffect(BaseEffect):
                     self._grid[r, c] = 0
                     self._grid[r + 1, c] = 1
                 else:
-                    dirs = (-1, 1) if random.random() < 0.5 else (1, -1)
+                    dirs = (-1, 1) if self.rng.random() < 0.5 else (1, -1)
                     for d in dirs:
                         nc = c + d
                         if 0 <= nc < self._w and self._grid[r + 1, nc] == 0:

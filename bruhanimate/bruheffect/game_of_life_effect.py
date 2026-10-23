@@ -14,13 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import random
-
 from bruhcolor import bruhcolored
 
 from ..bruhutil import LIFE_COLORS, LIFE_SCALES, Buffer
 from .base_effect import BaseEffect
-from .settings import GameOfLifeSettings
+from .settings import GameOfLifeSettings, validated_settings
 
 
 class GameOfLifeEffect(BaseEffect):
@@ -32,7 +30,7 @@ class GameOfLifeEffect(BaseEffect):
         self,
         buffer: Buffer,
         background: str,
-        settings: GameOfLifeSettings = None,
+        settings: GameOfLifeSettings | None = None,
     ):
         """
         Initializes the GameOfLifeEffect.
@@ -42,8 +40,8 @@ class GameOfLifeEffect(BaseEffect):
             background (str): Character or string to use as the background.
             settings (GameOfLifeSettings, optional): Configuration for the effect. Defaults to None.
         """
-        super(GameOfLifeEffect, self).__init__(buffer, background)
-        s = settings or GameOfLifeSettings()
+        s = validated_settings(settings, GameOfLifeSettings)
+        super(GameOfLifeEffect, self).__init__(buffer, background, seed=s.seed)
 
         self.decay = s.decay
         self.scale = s.scale
@@ -70,7 +68,7 @@ class GameOfLifeEffect(BaseEffect):
 
     def _set_attributes(self):
         self.grey_scale = (
-            LIFE_SCALES[random.choice(list(LIFE_SCALES.keys()))]
+            LIFE_SCALES[self.rng.choice(list(LIFE_SCALES.keys()))]
             if self.decay and self.scale == "random"
             else LIFE_SCALES[self.scale]
             if self.decay
@@ -116,7 +114,7 @@ class GameOfLifeEffect(BaseEffect):
         if tick == 0:
             for y in range(self.buffer.height()):
                 for x in range(self.buffer.width()):
-                    if random.random() < 0.1:
+                    if self.rng.random() < 0.1:
                         self.buffer.put_char(
                             x,
                             y,

@@ -38,6 +38,13 @@ independent of FPS, with bounded catch-up. Without it, update runs once per draw
 Built-ins advance once per tick; their probabilities and speed settings use ticks.
 frames counts presentations, and None runs until quit. fps=None disables pacing.
 
+``duration=10`` limits wall-clock seconds after startup, including pauses and
+completion hold. It must be finite and non-negative, or None for no limit.
+Zero starts no effect; play still opens/restores its Screen. The first stop
+condition wins. Sleeps end at the deadline, but a running callback cannot be
+interrupted and may overrun. Owned effects close normally on duration expiry.
+See :doc:`discovery` for typed effect/preset selection and CLI playback.
+
 Scene paints children from back to front. None is transparent; spaces paint unless
 Layer(animation, transparent=True) opts into space transparency. ImageEffect
 centers text/image rows by default, accepts x/y including zero/negative positions,

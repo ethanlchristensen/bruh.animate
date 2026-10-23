@@ -15,7 +15,6 @@ limitations under the License.
 """
 
 import math
-import random
 from typing import Dict, List
 
 import numpy as np
@@ -23,7 +22,7 @@ from bruhcolor import bruhcolored as bc
 
 from ..bruhutil.bruhffer import Buffer
 from .base_effect import BaseEffect
-from .settings import FireSettings
+from .settings import FireSettings, validated_settings
 
 
 class FireEffect(BaseEffect):
@@ -32,7 +31,9 @@ class FireEffect(BaseEffect):
     and more visible flames using fuller ASCII characters.
     """
 
-    def __init__(self, buffer: Buffer, background: str, settings: FireSettings = None):
+    def __init__(
+        self, buffer: Buffer, background: str, settings: FireSettings | None = None
+    ):
         """
         Initializes the fire effect.
 
@@ -41,8 +42,8 @@ class FireEffect(BaseEffect):
             background (str): Character or string to use as the background.
             settings (FireSettings, optional): Configuration for the fire effect. Defaults to None.
         """
-        super(FireEffect, self).__init__(buffer, background)
-        s = settings or FireSettings()
+        s = validated_settings(settings, FireSettings)
+        super(FireEffect, self).__init__(buffer, background, seed=s.seed)
 
         self.ascii_chars = " ░▒▓██████"
         self.color_map = [232, 160, 196, 202, 208, 214, 220, 226, 231, 15]
@@ -66,7 +67,7 @@ class FireEffect(BaseEffect):
         self.heat_spots: List[Dict] = []
         self.heat_spot_intensity = max(0.0, min(1.0, s.heat_spot_intensity))
 
-        self._random_variations = np.random.uniform(0.8, 1.2, (buffer.width(),))
+        self._random_variations = self.np_rng.uniform(0.8, 1.2, (buffer.width(),))
         self._update_random_variations_counter = 0
 
         self.set_fire_wind(s.wind_direction, s.wind_strength)
@@ -161,7 +162,7 @@ class FireEffect(BaseEffect):
         Returns:
             str: The character (with optional ANSI color) to render.
         """
-        intensity_variation = intensity * (1 + random.uniform(-0.1, 0.1))
+        intensity_variation = intensity * (1 + self.rng.uniform(-0.1, 0.1))
         intensity_variation = max(0, min(intensity_variation, max_intensity))
 
         char_index = int(
@@ -180,7 +181,7 @@ class FireEffect(BaseEffect):
         )
         color_index = min(color_index, len(self.color_map) - 2)
 
-        if random.random() < 0.04 and intensity > max_intensity * 0.9:
+        if self.rng.random() < 0.04 and intensity > max_intensity * 0.9:
             color_index = len(self.color_map) - 1
 
         if self.background_color:
@@ -214,22 +215,22 @@ class FireEffect(BaseEffect):
             base_values = np.roll(base_values, wind_offset_x, axis=1)
 
         if self.turbulence > 0:
-            turbulence_factor = np.random.uniform(
+            turbulence_factor = self.np_rng.uniform(
                 1 - self.turbulence, 1 + self.turbulence, base_values.shape
             )
             base_values *= turbulence_factor
 
         self.current_data[:-1, :] = base_values[1:, :] * self.height_cooling_map[:-1, :]
 
-        if random.random() < self.heat_spot_intensity:
+        if self.rng.random() < self.heat_spot_intensity:
             self.heat_spots.append(
                 {
-                    "x": random.randint(0, self.buffer.width() - 1),
-                    "y": random.randint(
+                    "x": self.rng.randint(0, self.buffer.width() - 1),
+                    "y": self.rng.randint(
                         self.buffer.height() - 3, self.buffer.height() - 1
                     ),
-                    "intensity": random.uniform(0.5, 1.0),
-                    "lifetime": random.randint(10, 20),
+                    "intensity": self.rng.uniform(0.5, 1.0),
+                    "lifetime": self.rng.randint(10, 20),
                     "y_offset": 0.0,
                     "x_offset": 0.0,
                 }
@@ -238,9 +239,9 @@ class FireEffect(BaseEffect):
         new_heat_spots = []
         for spot in self.heat_spots:
             if spot["lifetime"] > 0:
-                spot["y_offset"] += random.uniform(0, 0.5)
+                spot["y_offset"] += self.rng.uniform(0, 0.5)
                 spot["y"] = max(0, spot["y"] - int(spot["y_offset"]))
-                spot["x_offset"] += random.uniform(-0.3, 0.3)
+                spot["x_offset"] += self.rng.uniform(-0.3, 0.3)
                 spot["x"] += spot["x_offset"]
 
                 x, y = int(spot["x"]), int(spot["y"])
@@ -268,7 +269,7 @@ class FireEffect(BaseEffect):
             frame_number (int): The simulation tick index, independent of draw FPS.
         """
         if self._update_random_variations_counter % 10 == 0:
-            self._random_variations = np.random.uniform(
+            self._random_variations = self.np_rng.uniform(
                 0.8, 1.2, (self.buffer.width(),)
             )
         self._update_random_variations_counter += 1
@@ -279,7 +280,7 @@ class FireEffect(BaseEffect):
         )
         base_intensities *= self._random_variations
 
-        random_values = np.random.random(self.buffer.width())
+        random_values = self.np_rng.random(self.buffer.width())
         self.current_data[-1, :] = np.where(random_values < base_intensities, 255, 0)
 
     def update(self, dt: float) -> None:

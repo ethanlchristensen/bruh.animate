@@ -17,7 +17,7 @@ limitations under the License.
 from ..bruhutil import VALID_DIRECTIONS
 from ..bruhutil.bruhffer import Buffer
 from .base_effect import BaseEffect
-from .settings import OffsetSettings
+from .settings import OffsetSettings, validated_settings
 
 
 class OffsetEffect(BaseEffect):
@@ -26,7 +26,7 @@ class OffsetEffect(BaseEffect):
     """
 
     def __init__(
-        self, buffer: Buffer, background: str, settings: OffsetSettings = None
+        self, buffer: Buffer, background: str, settings: OffsetSettings | None = None
     ):
         """
         Initializes the OffsetEffect.
@@ -36,8 +36,8 @@ class OffsetEffect(BaseEffect):
             background (str): Character or string to use as the background.
             settings (OffsetSettings, optional): Configuration for the offset effect. Defaults to None.
         """
-        super(OffsetEffect, self).__init__(buffer, background)
-        s = settings or OffsetSettings()
+        s = validated_settings(settings, OffsetSettings)
+        super(OffsetEffect, self).__init__(buffer, background, seed=s.seed)
         self.direction = s.direction if s.direction in VALID_DIRECTIONS else "right"
 
     def set_direction(self, direction: str):

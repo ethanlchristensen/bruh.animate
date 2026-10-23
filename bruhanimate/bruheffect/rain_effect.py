@@ -14,13 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import random
-
 from bruhcolor import bruhcolored
 
 from ..bruhutil import WIND_DIRECTIONS, Buffer
 from .base_effect import BaseEffect
-from .settings import RainSettings
+from .settings import RainSettings, validated_settings
 
 
 class RainEffect(BaseEffect):
@@ -28,7 +26,9 @@ class RainEffect(BaseEffect):
     Effect to simulate the look of rain.
     """
 
-    def __init__(self, buffer: Buffer, background: str, settings: RainSettings = None):
+    def __init__(
+        self, buffer: Buffer, background: str, settings: RainSettings | None = None
+    ):
         """
         Initializes the RainEffect.
 
@@ -37,8 +37,8 @@ class RainEffect(BaseEffect):
             background (str): Character or string to use for the background.
             settings (RainSettings, optional): Configuration for the rain effect. Defaults to None.
         """
-        super(RainEffect, self).__init__(buffer, background)
-        s = settings or RainSettings()
+        s = validated_settings(settings, RainSettings)
+        super(RainEffect, self).__init__(buffer, background, seed=s.seed)
 
         self.image_present = False
         self.collision = s.collision
@@ -143,13 +143,13 @@ class RainEffect(BaseEffect):
         if w == 0 or h == 0:
             return
         bolt_height = h
-        x = random.randint(2, w - 3) if w >= 5 else random.randint(0, w - 1)
+        x = self.rng.randint(2, w - 3) if w >= 5 else self.rng.randint(0, w - 1)
         cells = []
         chars = ["|", "/", "\\"]
         for y in range(bolt_height):
-            cells.append((x, y, random.choice(chars)))
-            x = max(0, min(w - 1, x + random.choice([-1, 0, 0, 1])))
-        self._bolts.append([cells, random.randint(10, 20)])
+            cells.append((x, y, self.rng.choice(chars)))
+            x = max(0, min(w - 1, x + self.rng.choice([-1, 0, 0, 1])))
+        self._bolts.append([cells, self.rng.randint(10, 20)])
 
     def _set_rain(self):
         self.rain = f"{' ' * (1000 - self.intensity)}"
@@ -220,7 +220,7 @@ class RainEffect(BaseEffect):
                 0,
                 0,
                 "".join(
-                    self.rain[random.randint(0, self.rain_length - 1)]
+                    self.rain[self.rng.randint(0, self.rain_length - 1)]
                     for _ in range(self.buffer.width())
                 ),
             )
@@ -233,7 +233,7 @@ class RainEffect(BaseEffect):
                 0,
                 0,
                 "".join(
-                    self.rain[random.randint(0, self.rain_length - 1)]
+                    self.rain[self.rng.randint(0, self.rain_length - 1)]
                     for _ in range(self.buffer.width())
                 ),
             )
@@ -263,7 +263,7 @@ class RainEffect(BaseEffect):
 
         if self.lightning:
             if (
-                random.random() < self.lightning_chance
+                self.rng.random() < self.lightning_chance
                 and self.intensity >= self.lightning_threshold
             ):
                 self._spawn_bolt()

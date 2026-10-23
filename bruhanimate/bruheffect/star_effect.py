@@ -14,13 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import random
-
 from bruhcolor import bruhcolored
 
 from ..bruhutil import LIFE_COLORS, Buffer
 from .noise_effect import NoiseEffect
-from .settings import StarSettings
+from .settings import NoiseSettings, StarSettings, validated_settings
 
 
 class StarEffect(NoiseEffect):
@@ -28,7 +26,9 @@ class StarEffect(NoiseEffect):
     A blinking star effect — a NoiseEffect with a predefined intensity and star characters.
     """
 
-    def __init__(self, buffer: Buffer, background: str, settings: StarSettings = None):
+    def __init__(
+        self, buffer: Buffer, background: str, settings: StarSettings | None = None
+    ):
         """
         Initializes the StarEffect.
 
@@ -37,8 +37,10 @@ class StarEffect(NoiseEffect):
             background (str): Character or string for the background.
             settings (StarSettings, optional): Configuration for the star effect. Defaults to None.
         """
-        super(StarEffect, self).__init__(buffer, background)
-        s = settings or StarSettings()
+        s = validated_settings(settings, StarSettings)
+        super(StarEffect, self).__init__(
+            buffer, background, settings=NoiseSettings(seed=s.seed)
+        )
 
         self.stars = f"{background * (100 // self.background_length)}.*+"
         self.stars_length = len(self.stars)
@@ -69,14 +71,16 @@ class StarEffect(NoiseEffect):
         """Advance one simulation tick; dt is measured in seconds."""
         for y in range(self.buffer.height()):
             for x in range(self.buffer.width()):
-                if random.random() < self.intensity:
+                if self.rng.random() < self.intensity:
                     self.buffer.put_char(
                         x,
                         y,
                         bruhcolored(
-                            self.stars[random.randint(0, self.stars_length - 1)],
+                            self.stars[self.rng.randint(0, self.stars_length - 1)],
                             color=LIFE_COLORS[self.color_type][
-                                random.randint(0, len(LIFE_COLORS[self.color_type]) - 1)
+                                self.rng.randint(
+                                    0, len(LIFE_COLORS[self.color_type]) - 1
+                                )
                             ],
                         ).colored,
                     )

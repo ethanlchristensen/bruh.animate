@@ -70,6 +70,13 @@ object; explicit settings take precedence over a preset:
 Use ``effect_registry.names()`` to list effect names and
 ``effect_registry.presets("snow")`` to discover that effect's presets.
 
+For editor completion, import ``effects`` from ``bruhanimate`` and use
+``effects.snow.play(preset="light", duration=10)``. Type ``effects.`` to browse
+built-ins, and inspect ``effects.snow.presets()`` to see what ``light`` means.
+``bruhanimate list``, ``bruhanimate presets snow``, and ``bruhanimate info snow``
+offer the same discovery from the command line without starting an animation.
+See :doc:`discovery` for complete examples and validation rules.
+
 Try the demos
 -------------
 

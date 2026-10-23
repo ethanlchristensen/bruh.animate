@@ -49,6 +49,7 @@ examples aligned with it. Use standard `[dependency-groups]` for dev/docs tools.
 ```sh
 uv sync --locked --group docs
 uv run --locked ruff check .
+uv run --locked mypy
 uv run --locked pytest
 uv run --locked python scripts/check_examples.py
 uv run --locked --group docs python scripts/build_docs.py
@@ -70,6 +71,11 @@ Run installed-artifact checks directly with the environment's Python; `uv run`
 with synchronization can restore an editable project and hide packaging errors.
 
 ## Documentation and API changes
+
+Keep AI-session plans and progress notes local. `docs/DESIGN_PROPOSAL.md` and
+`docs/ROADMAP.md` are ignored and must not be force-added. README.md, AGENTS.md,
+and user-facing documentation remain tracked. Do not link public documentation
+to local session notes.
 
 Update README examples, public docstrings and the relevant guide together.
 `scripts/check_examples.py` executes current Python examples from README,

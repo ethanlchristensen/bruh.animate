@@ -19,7 +19,7 @@ from bruhcolor import bruhcolored as bc
 
 from ..bruhutil import Buffer
 from .base_effect import BaseEffect
-from .settings import DiffusionSettings
+from .settings import DiffusionSettings, validated_settings
 
 
 def _heat(r: float) -> int:
@@ -49,10 +49,10 @@ class DiffusionEffect(BaseEffect):
     """
 
     def __init__(
-        self, buffer: Buffer, background: str, settings: DiffusionSettings = None
+        self, buffer: Buffer, background: str, settings: DiffusionSettings | None = None
     ):
-        super().__init__(buffer, background)
-        s = settings or DiffusionSettings()
+        s = validated_settings(settings, DiffusionSettings)
+        super().__init__(buffer, background, seed=s.seed)
 
         self.color = s.color
         self.char = s.char
@@ -71,7 +71,7 @@ class DiffusionEffect(BaseEffect):
         self._U[cy - r : cy + r, cx - r : cx + r] = 0.50
         self._V[cy - r : cy + r, cx - r : cx + r] = 0.25
 
-        rng = np.random.default_rng(0)
+        rng = self.np_rng
         self._U = np.clip(
             self._U + rng.uniform(-0.02, 0.02, (h, w)).astype(np.float32), 0.0, 1.0
         )

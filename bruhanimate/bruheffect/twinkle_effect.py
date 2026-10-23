@@ -20,7 +20,7 @@ from bruhcolor import bruhcolored
 
 from ..bruhutil import TWINKLE_COLORS, Buffer
 from .base_effect import BaseEffect
-from .settings import TwinkleSettings
+from .settings import TwinkleSettings, validated_settings
 
 
 class TWINKLE_SPEC:
@@ -28,7 +28,14 @@ class TWINKLE_SPEC:
     A single twinkle character that cycles through brightness levels.
     """
 
-    def __init__(self, char: chr, value: int):
+    def __init__(
+        self,
+        char: str,
+        value: int,
+        *,
+        rng: random.Random | None = None,
+        mode: int | None = None,
+    ):
         """
         Initializes the twinkle character.
 
@@ -39,7 +46,11 @@ class TWINKLE_SPEC:
         self.char = char
         self.value = value
         self.fade = bruhcolored(self.char, TWINKLE_COLORS[self.value])
-        self.mode = random.choice([1, -1])
+        self.mode = (
+            mode
+            if mode is not None
+            else (rng if rng is not None else random.Random()).choice([1, -1])
+        )
 
     def __str__(self):
         return self.fade.colored
@@ -69,7 +80,7 @@ class TWINKLE_SPEC:
         Returns:
             TWINKLE_SPEC: Copy with the same char, value, and mode.
         """
-        new = TWINKLE_SPEC(self.char, self.value)
+        new = TWINKLE_SPEC(self.char, self.value, mode=self.mode)
         new.mode = self.mode
         return new
 
@@ -80,7 +91,7 @@ class TwinkleEffect(BaseEffect):
     """
 
     def __init__(
-        self, buffer: Buffer, background: str, settings: TwinkleSettings = None
+        self, buffer: Buffer, background: str, settings: TwinkleSettings | None = None
     ):
         """
         Initializes the TwinkleEffect.
@@ -90,8 +101,8 @@ class TwinkleEffect(BaseEffect):
             background (str): Character or string to use as the background.
             settings (TwinkleSettings, optional): Configuration for the effect. Defaults to None.
         """
-        super(TwinkleEffect, self).__init__(buffer, background)
-        s = settings or TwinkleSettings()
+        s = validated_settings(settings, TwinkleSettings)
+        super(TwinkleEffect, self).__init__(buffer, background, seed=s.seed)
         self.density = s.density
         self.twinkle_chars = s.twinkle_chars
         self.specs = []
@@ -124,9 +135,11 @@ class TwinkleEffect(BaseEffect):
         self.buffer.clear_buffer()
         for y in range(self.buffer.height()):
             for x in range(self.buffer.width()):
-                if random.random() < self.density:
+                if self.rng.random() < self.density:
                     spec = TWINKLE_SPEC(
-                        random.choice(self.twinkle_chars), random.randint(0, 23)
+                        self.rng.choice(self.twinkle_chars),
+                        self.rng.randint(0, 23),
+                        rng=self.rng,
                     )
                     self.buffer.put_char(x, y, spec)
                     self.specs.append((x, y))

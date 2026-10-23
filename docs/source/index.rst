@@ -32,6 +32,8 @@ Start here
    :caption: Learn
 
    getting_started
+   discovery
+   capture
    concepts
 
 .. toctree::

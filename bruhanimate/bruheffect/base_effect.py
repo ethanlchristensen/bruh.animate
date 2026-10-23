@@ -14,7 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import random
 from abc import ABC, abstractmethod
+
+import numpy as np
 
 from ..bruhutil.bruhffer import Buffer
 
@@ -27,14 +30,23 @@ class BaseEffect(ABC):
     effects can use dt (seconds) for continuous motion instead.
     """
 
-    def __init__(self, buffer: Buffer, background: str):
+    def __init__(self, buffer: Buffer, background: str, *, seed: int | None = None):
         """
         Base class for all effects.
 
         Args:
             buffer (Buffer): Effect buffer to push updates to.
             background (str): character or string to use for the background.
+            seed: Non-negative integer for independent Python and NumPy random
+                streams. None uses fresh entropy. Global RNG state is untouched.
         """
+        if seed is not None:
+            if type(seed) is not int:
+                raise TypeError("seed must be an integer or None")
+            if seed < 0:
+                raise ValueError("seed must be non-negative")
+        self.rng = random.Random(seed)
+        self.np_rng = np.random.default_rng(seed)
         self.buffer = buffer
         self.background = background
         self.background_length = len(background)
