@@ -63,7 +63,7 @@ html_theme = "furo"
 # All static assets come from the theme; no custom static directory is needed.
 html_static_path = []
 
-html_logo = "fnbb.png"
+html_logo = "bruhshelllogo2.png"
 html_title = f"bruhanimate {version}"
 
 pygments_style = "emacs"
