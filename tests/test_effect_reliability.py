@@ -1,5 +1,3 @@
-import random
-
 import numpy as np
 import pytest
 
@@ -23,25 +21,22 @@ EFFECT_CASES = [
 
 
 @pytest.fixture(autouse=True)
-def isolated_randomness_and_audio(monkeypatch):
-    """Keep smoke tests reproducible without accessing audio hardware."""
-    random_state = random.getstate()
-    numpy_state = np.random.get_state()
-    random.seed(0)
-    np.random.seed(0)
+def stub_audio(monkeypatch):
+    """Never acquire audio hardware during simulation tests."""
     monkeypatch.setattr(AudioEffect, "_capture_loop", lambda self: None)
-    try:
-        yield
-    finally:
-        random.setstate(random_state)
-        np.random.set_state(numpy_state)
 
 
 @pytest.mark.parametrize("size", [(24, 80), (3, 5), (1, 1)])
 @pytest.mark.parametrize("name, preset", EFFECT_CASES)
 def test_registered_effects_render_at_representative_sizes(name, preset, size):
     buffer = Buffer(*size)
-    effect = effect_registry.create(name, buffer, " ", preset=preset)
+    effect = effect_registry.create(
+        name,
+        buffer,
+        " ",
+        preset=preset,
+        seed=0 if effect_registry.get(name).settings_cls else None,
+    )
     try:
         for frame in range(12):
             effect.update(1 / 30)
@@ -59,8 +54,8 @@ def test_registered_effects_render_at_representative_sizes(name, preset, size):
 
 @pytest.mark.parametrize("name", ["stars", "gol"])
 def test_color_presets_produce_colored_cells(name, monkeypatch):
-    monkeypatch.setattr(random, "random", lambda: 0.0)
     effect = effect_registry.create(name, Buffer(3, 5), " ", preset="color")
+    monkeypatch.setattr(effect.rng, "random", lambda: 0.0)
 
     effect.update(1 / 30)
 
@@ -73,8 +68,8 @@ def test_color_presets_produce_colored_cells(name, monkeypatch):
 def test_rain_defaults_and_presets_can_draw_visible_rain(preset, monkeypatch):
     effect = effect_registry.create("rain", Buffer(3, 5), " ", preset=preset)
     # Select the last population character so this cannot pass or fail by chance.
-    monkeypatch.setattr(random, "randint", lambda low, high: high)
-    monkeypatch.setattr(random, "random", lambda: 1.0)
+    monkeypatch.setattr(effect.rng, "randint", lambda low, high: high)
+    monkeypatch.setattr(effect.rng, "random", lambda: 1.0)
 
     effect.update(1 / 30)
 
@@ -84,7 +79,7 @@ def test_rain_defaults_and_presets_can_draw_visible_rain(preset, monkeypatch):
 @pytest.mark.parametrize("intensity", [1, 50, 100, 600, 999])
 def test_positive_rain_intensity_can_draw_rain(intensity, monkeypatch):
     effect = RainEffect(Buffer(3, 5), " ", RainSettings(intensity=intensity))
-    monkeypatch.setattr(random, "randint", lambda low, high: high)
+    monkeypatch.setattr(effect.rng, "randint", lambda low, high: high)
 
     effect.update(1 / 30)
 
@@ -100,9 +95,12 @@ def test_zero_rain_intensity_is_dry():
 
 
 @pytest.mark.parametrize("intensity, expected", [(-1, 0), (1000, 999)])
-def test_rain_intensity_bounds_match_for_constructor_and_setter(intensity, expected):
-    effect = RainEffect(Buffer(3, 5), " ", RainSettings(intensity=intensity))
-    assert effect.intensity == expected
+def test_rain_settings_reject_invalid_bounds_while_legacy_setter_clamps(
+    intensity, expected
+):
+    with pytest.raises(ValueError, match="intensity"):
+        RainSettings(intensity=intensity)
+    effect = RainEffect(Buffer(3, 5), " ", RainSettings())
 
     effect.set_intensity(intensity)
     assert effect.intensity == expected
@@ -139,7 +137,8 @@ def test_lightning_stays_inside_narrow_buffers(width):
 def test_light_snow_is_less_dense_than_default_snow(monkeypatch):
     light = effect_registry.create("snow", Buffer(3, 5), " ", preset="light")
     default = SnowEffect(Buffer(3, 5), " ")
-    monkeypatch.setattr(random, "random", lambda: 0.0075)
+    monkeypatch.setattr(light.rng, "random", lambda: 0.0075)
+    monkeypatch.setattr(default.rng, "random", lambda: 0.0075)
 
     light.update(1 / 30)
     default.update(1 / 30)
@@ -154,7 +153,7 @@ def test_snow_can_be_disabled(use_setter, monkeypatch):
     if use_setter:
         effect.set_snow_intensity(0.5)
         effect.set_snow_intensity(0)
-    monkeypatch.setattr(random, "random", lambda: 0.0)
+    monkeypatch.setattr(effect.rng, "random", lambda: 0.0)
 
     effect.update(1 / 30)
 

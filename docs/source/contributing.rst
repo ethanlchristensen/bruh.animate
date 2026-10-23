@@ -7,6 +7,7 @@ Use Python 3.13 and uv 0.13.4; commit lockfile changes with dependency updates.
 
    uv sync --locked --group docs
    uv run --locked ruff check .
+   uv run --locked mypy
    uv run --locked pytest
    uv run --locked python scripts/check_examples.py
    uv run --locked --group docs python scripts/build_docs.py
@@ -19,6 +20,8 @@ docs/build/html/index.html to preview the local site.
 
 CI runs on Linux, Windows and macOS. It builds wheel/source distributions and
 smoke-tests their installed contents without editable checkout imports.
+The mypy check exercises the public discovery API, including concrete settings
+return types and rejection of mismatched presets/settings.
 
 Publishing requires a matching vMAJOR.MINOR.PATCH tag on a main-branch commit;
 normal merges do not publish. Package upload uses verified artifacts in a separate

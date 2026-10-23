@@ -189,7 +189,8 @@ between owners. Immutable model data can be shared.
 
 ``play`` opens and restores a Screen for you. ``Player`` borrows a Screen for
 embedding or tests. Resizing currently ends playback with ScreenResizedError
-after cleanup; automatic reflow, rewind, and recording/export are future work.
+after cleanup; automatic reflow, rewind, and image/video export are future work.
+Seeded headless frames and terminal recordings are available through :doc:`capture`.
 
 Next, use :doc:`player` for the detailed contracts, :doc:`grid` for viewport
 coordinates and styling, or :doc:`demos/index` for complete examples.

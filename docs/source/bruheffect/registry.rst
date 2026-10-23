@@ -3,8 +3,13 @@ Effect Registry
 
 The ``effect_registry`` is a module-level singleton that maps every built-in effect
 name to its implementation class, settings class, description, and named presets.
-It is the single source of truth used internally by all renderers to instantiate
+It is the single source of truth used by the player and CLI to instantiate
 effects, and is fully open for extension with your own custom effects.
+
+See :doc:`../discovery` for the typed ``effects.snow`` catalog, preset inspection,
+CLI commands, and settings validation. ``presets(name)`` returns independent
+settings copies. ``resolve_settings`` validates selections without constructing
+effects. Explicit settings override a known preset; unknown presets always fail.
 
 .. code-block:: python
 

@@ -16,7 +16,7 @@ limitations under the License.
 
 from ..bruhutil import Buffer
 from .base_effect import BaseEffect
-from .settings import DrawLinesSettings
+from .settings import DrawLinesSettings, validated_settings
 
 
 class Line:
@@ -66,7 +66,7 @@ class DrawLinesEffect(BaseEffect):
     """
 
     def __init__(
-        self, buffer: Buffer, background: str, settings: DrawLinesSettings = None
+        self, buffer: Buffer, background: str, settings: DrawLinesSettings | None = None
     ):
         """
         Initializes the DrawLinesEffect.
@@ -76,8 +76,8 @@ class DrawLinesEffect(BaseEffect):
             background (str): Character or string to use as the background.
             settings (DrawLinesSettings, optional): Configuration for the effect. Defaults to None.
         """
-        super(DrawLinesEffect, self).__init__(buffer, background)
-        s = settings or DrawLinesSettings()
+        s = validated_settings(settings, DrawLinesSettings)
+        super(DrawLinesEffect, self).__init__(buffer, background, seed=s.seed)
         self.lines = []
         self.char = s.char
         self.thin = s.thin

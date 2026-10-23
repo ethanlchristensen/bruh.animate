@@ -60,7 +60,9 @@ def main() -> None:
             nonlocal now
             now += seconds
 
-        player.clock, player.sleep, player.frames = lambda: now, sleep, 2
+        if isinstance(player.screen, HeadlessScreen):
+            player.clock, player.sleep = lambda: now, sleep
+        player.frames = min(player.frames, 2) if player.frames is not None else 2
         return original_run(player)
 
     root = Path(__file__).resolve().parents[1]

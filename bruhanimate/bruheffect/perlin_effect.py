@@ -21,7 +21,7 @@ from bruhcolor import bruhcolored as bc
 
 from ..bruhutil import Buffer
 from .base_effect import BaseEffect
-from .settings import PerlinSettings
+from .settings import PerlinSettings, validated_settings
 
 
 def _heat(r: float) -> int:
@@ -48,10 +48,10 @@ class PerlinEffect(BaseEffect):
     """
 
     def __init__(
-        self, buffer: Buffer, background: str, settings: PerlinSettings = None
+        self, buffer: Buffer, background: str, settings: PerlinSettings | None = None
     ):
-        super().__init__(buffer, background)
-        s = settings or PerlinSettings()
+        s = validated_settings(settings, PerlinSettings)
+        super().__init__(buffer, background, seed=s.seed)
 
         self.color = s.color
         self.char = s.char
@@ -62,7 +62,7 @@ class PerlinEffect(BaseEffect):
         self._h = buffer.height()
         self._t = 0.0
 
-        rng = np.random.default_rng()
+        rng = self.np_rng
         self._offsets = rng.uniform(0, 2 * math.pi, max(8, self.octaves)).astype(
             np.float32
         )

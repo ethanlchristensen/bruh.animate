@@ -14,13 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import random
-
 from bruhcolor import bruhcolored
 
 from ..bruhutil import Buffer
 from .base_effect import BaseEffect
-from .settings import NoiseSettings
+from .settings import NoiseSettings, validated_settings
 
 
 class NoiseEffect(BaseEffect):
@@ -28,7 +26,9 @@ class NoiseEffect(BaseEffect):
     A noise effect that adds random pixels to the screen with a specified intensity.
     """
 
-    def __init__(self, buffer: Buffer, background: str, settings: NoiseSettings = None):
+    def __init__(
+        self, buffer: Buffer, background: str, settings: NoiseSettings | None = None
+    ):
         """
         Initializes the NoiseEffect class.
 
@@ -37,10 +37,10 @@ class NoiseEffect(BaseEffect):
             background (str): Character or string for background.
             settings (NoiseSettings, optional): Configuration for the noise effect. Defaults to None.
         """
-        super(NoiseEffect, self).__init__(buffer, background)
-        s = settings or NoiseSettings()
+        s = validated_settings(settings, NoiseSettings)
+        super(NoiseEffect, self).__init__(buffer, background, seed=s.seed)
 
-        self.intensity = s.intensity / 1000 if 1 <= s.intensity <= 999 else 200 / 1000
+        self.intensity = s.intensity / 1000
         self.color = s.color
         self.characters = True
 
@@ -74,16 +74,16 @@ class NoiseEffect(BaseEffect):
         if self.color:
             for y in range(self.buffer.height()):
                 for x in range(self.buffer.width()):
-                    if random.random() < self.intensity:
+                    if self.rng.random() < self.intensity:
                         if self.characters:
                             self.buffer.put_char(
                                 x,
                                 y,
                                 bruhcolored(
                                     self.noise[
-                                        random.randint(0, self.noise_length - 1)
+                                        self.rng.randint(0, self.noise_length - 1)
                                     ],
-                                    on_color=random.randint(0, 255),
+                                    on_color=self.rng.randint(0, 255),
                                 ).colored,
                             )
                         else:
@@ -91,13 +91,13 @@ class NoiseEffect(BaseEffect):
                                 x,
                                 y,
                                 bruhcolored(
-                                    " ", on_color=random.randint(0, 255)
+                                    " ", on_color=self.rng.randint(0, 255)
                                 ).colored,
                             )
         else:
             for y in range(self.buffer.height()):
                 for x in range(self.buffer.width()):
-                    if random.random() < self.intensity:
+                    if self.rng.random() < self.intensity:
                         self.buffer.put_char(
-                            x, y, self.noise[random.randint(0, self.noise_length - 1)]
+                            x, y, self.noise[self.rng.randint(0, self.noise_length - 1)]
                         )

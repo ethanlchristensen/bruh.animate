@@ -19,7 +19,7 @@ from bruhcolor import bruhcolored as bc
 
 from ..bruhutil import Buffer
 from .base_effect import BaseEffect
-from .settings import VoronoiSettings
+from .settings import VoronoiSettings, validated_settings
 
 
 def _heat(r: float) -> int:
@@ -45,10 +45,10 @@ class VoronoiEffect(BaseEffect):
     """
 
     def __init__(
-        self, buffer: Buffer, background: str, settings: VoronoiSettings = None
+        self, buffer: Buffer, background: str, settings: VoronoiSettings | None = None
     ):
-        super().__init__(buffer, background)
-        s = settings or VoronoiSettings()
+        s = validated_settings(settings, VoronoiSettings)
+        super().__init__(buffer, background, seed=s.seed)
 
         self.color = s.color
         self.char = s.char
@@ -57,7 +57,7 @@ class VoronoiEffect(BaseEffect):
         self._h = buffer.height()
 
         n = s.num_seeds
-        rng = np.random.default_rng()
+        rng = self.np_rng
         self._seeds = np.column_stack(
             [
                 rng.uniform(0, self._w, n),

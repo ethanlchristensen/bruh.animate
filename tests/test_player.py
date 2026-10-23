@@ -262,6 +262,101 @@ def test_zero_frames_does_not_construct_or_start_content():
     factory.assert_not_called()
 
 
+@pytest.mark.parametrize("duration", [-1, float("nan"), float("inf")])
+def test_invalid_duration_rejected(duration):
+    with pytest.raises(ValueError, match="duration"):
+        Player(RecordingScreen(), "snow", duration=duration)
+
+
+@pytest.mark.parametrize("duration", [True, "1", object()])
+def test_duration_requires_numeric_seconds(duration):
+    with pytest.raises(TypeError, match="duration"):
+        Player(RecordingScreen(), "snow", duration=duration)
+
+
+def test_zero_duration_does_not_construct_or_start_content():
+    factory = Mock()
+    assert Player(RecordingScreen(), effect_factory=factory, duration=0).run() == 0
+    factory.assert_not_called()
+
+
+def test_duration_caps_sleep_at_deadline_and_closes_owned_effect():
+    clock, screen = Clock(), RecordingScreen()
+    effect = TrackingEffect(Buffer(3, 5))
+    count = Player(screen, effect, duration=0.25, fps=10, clock=clock, sleep=clock.sleep).run()
+    assert count == 3
+    assert clock.now == pytest.approx(0.25)
+    assert effect.calls == ["start", 0, 1, 2, "close"]
+    assert not screen.closed
+
+
+def test_duration_begins_after_startup_and_obeys_earlier_frame_limit():
+    clock = Clock()
+    effect = TrackingEffect(Buffer(3, 5))
+    effect.start = lambda: clock.sleep(5)
+    assert Player(
+        RecordingScreen(), effect, duration=10, frames=2, fps=10,
+        clock=clock, sleep=clock.sleep,
+    ).run() == 2
+    assert clock.now == pytest.approx(5.1)
+    assert effect.calls == [0, 1, "close"]
+
+
+def test_uncapped_duration_stops_after_slow_callback_without_extra_update():
+    clock = Clock()
+    effect = CallbackEffect(lambda buffer: None, update=lambda dt: clock.sleep(0.2))
+    assert Player(
+        RecordingScreen(), effect, duration=0.3, fps=None,
+        clock=clock, sleep=clock.sleep,
+    ).run() == 2
+    assert clock.now == pytest.approx(0.4)
+
+
+def test_duration_bounds_fixed_tick_catchup():
+    clock = Clock()
+    calls = []
+
+    def update(dt):
+        calls.append(dt)
+        clock.sleep(0.2)
+
+    assert Player(
+        RecordingScreen(), CallbackEffect(lambda buffer: None, update=update),
+        duration=0.3, fps=10, updates_per_second=100, max_catch_up=5,
+        clock=clock, sleep=clock.sleep,
+    ).run() == 2
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("paused", [False, True])
+def test_duration_limits_completed_hold_and_paused_playback(paused):
+    from bruhanimate import Playback
+
+    clock = Clock()
+    animation = Playback([], lambda state, buffer: None, paused=paused)
+    assert Player(
+        RecordingScreen(), animation, duration=0.25, fps=10,
+        clock=clock, sleep=clock.sleep,
+    ).run() == 3
+    assert clock.now == pytest.approx(0.25)
+    assert animation.finished is (not paused)
+
+
+def test_play_forwards_duration_and_restores_screen(monkeypatch):
+    import bruhanimate.player as player_module
+
+    screen, clock = RecordingScreen(), Clock()
+    real_player = Player
+
+    def make_player(*args, **kwargs):
+        return real_player(*args, **kwargs, clock=clock, sleep=clock.sleep)
+
+    monkeypatch.setattr(player_module, "Player", make_player)
+    monkeypatch.setattr(Screen, "open", classmethod(lambda cls: screen))
+    assert play("snow", fps=10, duration=0.25) == 3
+    assert screen.closed
+
+
 @pytest.mark.parametrize(
     "options",
     [

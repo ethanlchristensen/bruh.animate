@@ -15,13 +15,12 @@ limitations under the License.
 """
 
 import math
-import random
 
 from bruhcolor import bruhcolored
 
 from ..bruhutil import GREY_SCALES, PLASMA_COLORS, Buffer
 from .base_effect import BaseEffect
-from .settings import PlasmaSettings
+from .settings import PlasmaSettings, validated_settings
 
 
 class PlasmaEffect(BaseEffect):
@@ -30,7 +29,7 @@ class PlasmaEffect(BaseEffect):
     """
 
     def __init__(
-        self, buffer: Buffer, background: str, settings: PlasmaSettings = None
+        self, buffer: Buffer, background: str, settings: PlasmaSettings | None = None
     ):
         """
         Initializes the PlasmaEffect class.
@@ -40,16 +39,16 @@ class PlasmaEffect(BaseEffect):
             background (str): Character or string to use as the background.
             settings (PlasmaSettings, optional): Configuration for the plasma effect. Defaults to None.
         """
-        super(PlasmaEffect, self).__init__(buffer, background)
-        s = settings or PlasmaSettings()
+        s = validated_settings(settings, PlasmaSettings)
+        super(PlasmaEffect, self).__init__(buffer, background, seed=s.seed)
         self.show_info = s.show_info
         self.random_colors = s.random_colors
         self.color = s.color
         self.characters = s.characters
-        self.scale = random.choice(GREY_SCALES)
+        self.scale = self.rng.choice(GREY_SCALES)
         self.colors = PLASMA_COLORS[len(self.scale)][0]
         self.t = 0
-        self.vals = [random.randint(1, 100) for _ in range(4)]
+        self.vals = [self.rng.randint(1, 100) for _ in range(4)]
         self._colored_cache = None
 
     def _build_cache(self):
@@ -90,11 +89,11 @@ class PlasmaEffect(BaseEffect):
             raise ValueError(
                 f"only 8, 10, and 16 are supported grey scale sizes, got {size}"
             )
-        self.scale = random.choice([s for s in GREY_SCALES if len(s) == size])
+        self.scale = self.rng.choice([s for s in GREY_SCALES if len(s) == size])
         if not self.random_colors:
-            self.colors = random.choice(PLASMA_COLORS[size])
+            self.colors = self.rng.choice(PLASMA_COLORS[size])
         else:
-            self.colors = [random.randint(0, 255) for _ in range(len(self.scale))]
+            self.colors = [self.rng.randint(0, 255) for _ in range(len(self.scale))]
         self._colored_cache = None
 
     def set_color_properties(
@@ -114,7 +113,7 @@ class PlasmaEffect(BaseEffect):
         if not random_colors:
             self.colors = PLASMA_COLORS[len(self.scale)][0]
         else:
-            self.colors = [random.randint(0, 255) for _ in range(len(self.scale))]
+            self.colors = [self.rng.randint(0, 255) for _ in range(len(self.scale))]
         self._colored_cache = None
 
     def set_colors(self, colors: list[int]):
@@ -160,7 +159,7 @@ class PlasmaEffect(BaseEffect):
         """
         Randomizes the four plasma frequency values.
         """
-        self.vals = [random.randint(1, 50) for _ in range(4)]
+        self.vals = [self.rng.randint(1, 50) for _ in range(4)]
 
     def update(self, dt: float) -> None:
         """Advance one simulation tick; dt is measured in seconds."""

@@ -28,6 +28,9 @@ dependencies = [
     "pywin32>=311,<312; sys_platform == 'win32'",
 ]
 
+[project.scripts]
+bruhanimate = "bruhanimate.cli:main"
+
 [project.optional-dependencies]
 audio = [
     "PyAudioWPatch>=0.2.12; sys_platform == 'win32'",
@@ -48,6 +51,7 @@ dev = [
     "pytest-cov>=6.0.0,<7",
     "twine>=6.2.0,<7",
     "PyYAML>=6.0.3,<7",
+    "mypy>=1.15,<2",
 ]
 
 [tool.uv]
@@ -73,3 +77,11 @@ testpaths = ["tests"]
 pythonpath = ["."]
 python_files = ["test_*.py"]
 addopts = "--cov=bruhanimate --cov-report=term-missing"
+
+[tool.mypy]
+files = ["tests/typing/discovery.py", "bruhanimate/capture.py"]
+python_version = "3.13"
+follow_imports = "silent"
+ignore_missing_imports = true
+warn_unused_ignores = true
+check_untyped_defs = true

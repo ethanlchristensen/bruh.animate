@@ -7,12 +7,13 @@ import operator
 import time
 from collections.abc import Callable
 from contextlib import ExitStack
-from typing import Any, Literal, Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 
 from .bruheffect.registry import effect_registry
 from .bruhutil.bruherrors import ScreenResizedError
 from .bruhutil.bruhffer import Buffer
 from .bruhutil.bruhscreen import Screen
+from .bruhutil.bruhtypes import EffectType
 
 
 @runtime_checkable
@@ -94,7 +95,7 @@ class FramePresenter:
         return previous
 
 
-EffectSource = str | Animation
+EffectSource = EffectType | str | Animation
 EffectFactory = Callable[[Buffer], Animation]
 
 
@@ -107,14 +108,19 @@ class Player:
 
     Without updates_per_second, one update occurs per presentation. An explicit
     update rate uses fixed ticks independent of FPS, with bounded catch-up after
-    stalls. frames counts presentations; None runs until quit. fps=None disables
-    pacing; uncapped updates use elapsed time when no fixed rate is supplied.
+    stalls. frames counts presentations; duration limits elapsed wall-clock seconds
+    after startup (including pauses/hold); None leaves each limit unset. A zero
+    limit starts no content. Callbacks are synchronous and may overrun a deadline.
+    fps=None disables pacing; uncapped updates use elapsed time when no fixed rate
+    is supplied.
     Drawing receives a cleared buffer each presentation. BaseEffect retains its
     own simulation raster; draw() never advances it.
 
     on_complete='exit' stops after drawing an animation whose optional finished
     property is true. The default 'hold' keeps drawing and polling input. Content
     without this property (or reporting None) has no automatic completion.
+    Named effects accept seed to override their selected settings on a copy;
+    None preserves the settings seed. Configure instance/factory seeds directly.
     """
 
     def __init__(
@@ -126,10 +132,12 @@ class Player:
         fps: float | None = 30,
         updates_per_second: float | None = None,
         frames: int | None = None,
+        duration: float | None = None,
         on_complete: Literal["hold", "exit"] = "hold",
         background: str = " ",
-        settings: Any = None,
+        settings: object | None = None,
         preset: str | None = None,
+        seed: int | None = None,
         manage_effect: bool = True,
         event_handler: Callable[[int], bool] | None = None,
         presenter: FramePresenter | None = None,
@@ -148,13 +156,16 @@ class Player:
             frames = operator.index(frames)
             if frames < 0:
                 raise ValueError("frames must be non-negative or None")
+        _validate_duration(duration)
         max_catch_up = operator.index(max_catch_up)
         if max_catch_up < 1:
             raise ValueError("max_catch_up must be positive")
         if screen.height < 1 or screen.width < 1:
             raise ValueError("Player requires a non-empty screen")
-        if (settings is not None or preset is not None) and not isinstance(effect, str):
-            raise ValueError("settings and preset apply only to named effects")
+        if (
+            settings is not None or preset is not None or seed is not None
+        ) and not isinstance(effect, str):
+            raise ValueError("settings, preset and seed apply only to named effects")
         if not manage_effect and (
             effect_factory is not None or isinstance(effect, str)
         ):
@@ -165,10 +176,12 @@ class Player:
         self.fps = fps
         self.updates_per_second = updates_per_second
         self.frames = frames
+        self.duration = duration
         self.on_complete = on_complete
         self.background = background
         self.settings = settings
         self.preset = preset
+        self.seed = seed
         self.manage_effect = manage_effect
         self.event_handler = event_handler
         self.presenter = presenter if presenter is not None else FramePresenter(screen)
@@ -188,6 +201,7 @@ class Player:
                 self.background,
                 settings=self.settings,
                 preset=self.preset,
+                seed=self.seed,
             )
         if isinstance(source, Animation):
             return source
@@ -225,7 +239,7 @@ class Player:
         """
         if self._running:
             raise RuntimeError("This Player is already running")
-        if self.frames == 0:
+        if self.frames == 0 or self.duration == 0:
             return 0
         self._running = True
         presented = 0
@@ -237,6 +251,9 @@ class Player:
                     animation.start()
                 back = Buffer(self.screen.height, self.screen.width)
                 next_frame = next_tick = last_update = self.clock()
+                deadline = (
+                    last_update + self.duration if self.duration is not None else None
+                )
                 frame_interval = 1 / self.fps if self.fps is not None else 0.0
                 tick_interval = (
                     1 / self.updates_per_second
@@ -249,6 +266,8 @@ class Player:
                     if self._should_stop():
                         break
                     now = self.clock()
+                    if deadline is not None and now >= deadline:
+                        break
                     if self.updates_per_second is None:
                         animation.update(
                             tick_interval
@@ -259,6 +278,8 @@ class Player:
                     else:
                         ticks = 0
                         while now + 1e-9 >= next_tick and ticks < self.max_catch_up:
+                            if deadline is not None and self.clock() >= deadline:
+                                break
                             animation.update(tick_interval)
                             next_tick += tick_interval
                             ticks += 1
@@ -276,7 +297,12 @@ class Player:
                         break
                     if frame_interval:
                         next_frame += frame_interval
-                        remaining = next_frame - self.clock()
+                        wake_at = (
+                            min(next_frame, deadline)
+                            if deadline is not None
+                            else next_frame
+                        )
+                        remaining = wake_at - self.clock()
                         if remaining > 0:
                             self.sleep(remaining)
                         else:
@@ -295,20 +321,31 @@ def play(
     fps: float | None = 30,
     updates_per_second: float | None = None,
     frames: int | None = None,
+    duration: float | None = None,
     on_complete: Literal["hold", "exit"] = "hold",
     background: str = " ",
-    settings: Any = None,
+    settings: object | None = None,
     preset: str | None = None,
+    seed: int | None = None,
     event_handler: Callable[[int], bool] | None = None,
 ) -> int:
     """Open a screen, play owned content, and restore the terminal without a prompt.
 
+    Discover names with effects.names() and configurations with
+    effects.snow.presets(). Use effects.snow.play() for effect-specific preset
+    and settings completion. Custom registered names remain accepted here.
+
     Supply an effect name, an Animation object, or effect_factory(buffer), with
     exactly one source. Named effects accept settings/preset; explicit settings
     take precedence. Factories receive a correctly sized private Buffer.
+    seed overrides named-effect settings on an independent copy; None preserves
+    their seed. Seeds are non-negative integers and do not change global RNGs.
 
     fps paces presentations (None is uncapped), updates_per_second optionally
     sets fixed simulation ticks, and frames limits presentations (None is endless).
+    duration limits wall-clock seconds after startup, including paused/held time.
+    None is unlimited; zero creates/starts no content. The first stop condition
+    wins. A running callback cannot be interrupted, so a slow frame may overrun.
     on_complete selects hold/exit for content reporting a finished status.
     event_handler replaces the default quit bindings; returning True exits.
     Use Player directly for a borrowed Screen, injectable clock, or presenter.
@@ -318,6 +355,12 @@ def play(
         terminal and owned content have been restored/closed.
     """
 
+    _validate_duration(duration)
+    if isinstance(effect, str):
+        effect_registry.resolve_settings(
+            effect, settings=settings, preset=preset, seed=seed
+        )
+
     def run(screen):
         return Player(
             screen,
@@ -326,11 +369,22 @@ def play(
             fps=fps,
             updates_per_second=updates_per_second,
             frames=frames,
+            duration=duration,
             on_complete=on_complete,
             background=background,
             settings=settings,
             preset=preset,
+            seed=seed,
             event_handler=event_handler,
         ).run()
 
     return Screen.show(run)
+
+
+def _validate_duration(duration: float | None) -> None:
+    if duration is None:
+        return
+    if isinstance(duration, bool) or not isinstance(duration, (int, float)):
+        raise TypeError("duration must be a number of seconds or None")
+    if not math.isfinite(duration) or duration < 0:
+        raise ValueError("duration must be non-negative and finite or None")

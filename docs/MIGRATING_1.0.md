@@ -92,3 +92,48 @@ Rain defaults/presets now generate visible rain, snow honors zero and low spawn
 probabilities, color presets/demos use valid palettes, and tiny positive canvases
 avoid known lightning/firework/audio failures. Zero-sized effect canvases remain
 unsupported. Utility effect lists no longer advertise nonexistent chat/water.
+
+
+## Duration, discovery, and validation milestone (unreleased)
+
+- `play` and `Player` accept `duration` in wall-clock seconds after startup.
+  Pauses/hold count toward it. Zero starts no effect; callbacks can overrun.
+- `from bruhanimate import effects` exposes statically typed built-in catalog
+  members, for example `effects.snow.play(preset="light", duration=10)`.
+  Existing string-based calls and custom registry registration remain supported.
+- `bruhanimate` and `python -m bruhanimate` provide `list`, `presets`, `info`, and
+  `play` commands, including repeatable `--set FIELD=VALUE` overrides.
+- Built-in settings now raise `TypeError` for incorrect types and `ValueError`
+  for invalid ranges/choices, non-finite numbers, and unsupported glyphs. They
+  no longer rely on constructor clamping or silent fallback. Fix invalid values
+  at configuration time. Existing individual runtime setters retain their
+  documented behavior. NoiseSettings(intensity=0) now disables new noise.
+- Explicit settings still take precedence over a preset, but the supplied preset
+  must exist. Settings for effects without a settings class are rejected, and
+  settings must match the registered class. Unknown presets list valid choices.
+- `effect_registry.presets()` now copies nested values as well as the mapping.
+  Editing the result no longer mutates registered presets.
+- Unsupported offset `up`/`down` presets are removed. They previously silently
+  selected `right`; choose `left` or `right` explicitly.
+
+See [discovery](source/discovery.rst) for editor completion and settings ranges.
+
+## Seeded capture milestone (unreleased)
+
+- All built-in settings gain a keyword-only `seed: int | None`, preserving existing
+  positional fields. Non-negative seeds select independent Python/NumPy streams.
+  Global `random.seed` and `numpy.random.seed` no longer control effects. Configure
+  `SnowSettings(seed=42)` or use `effects.snow.play(seed=42, ...)` instead.
+- Diffusion previously hard-coded a NumPy seed of zero. Its default now uses fresh
+  entropy like the other simulations; select `DiffusionSettings(seed=0)` to retain
+  the old initialization. Seeds reproduce fresh effects with matching inputs,
+  sizes, timing and dependency versions; they do not rewind existing instances.
+- `capture` streams immutable `Frame` snapshots; `record` streams asciicast v2 to
+  a path or borrowed text stream. Both use Player with virtual time and require
+  `frames` or `duration`. Completion exits by default. They own supplied content
+  and close it on failure, but do not disable resource acquisition in `start()`.
+- The typed catalog adds matching `.capture()` / `.record()` methods; the CLI
+  adds `record` and `--seed`. Existing files require explicit overwrite. Named
+  effect seed overrides copy settings/presets; static/Julia reject these overrides.
+
+See [capture and recording](source/capture.rst) for timing and format contracts.

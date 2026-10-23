@@ -20,6 +20,10 @@ REQUIRED = {
     "playback.py",
     "scene.py",
     "grid.py",
+    "effects.py",
+    "capture.py",
+    "cli.py",
+    "__main__.py",
     "py.typed",
 }
 
