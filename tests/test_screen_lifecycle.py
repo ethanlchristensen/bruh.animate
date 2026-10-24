@@ -1,4 +1,5 @@
 import importlib.util
+import io
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -22,6 +23,38 @@ def unix_screen(monkeypatch):
         patch.setitem(sys.modules, "curses", curses)
         spec.loader.exec_module(module)
     return module.Screen, curses
+
+
+@pytest.mark.parametrize("buffered", [False, True])
+@pytest.mark.parametrize("encoding", ["ascii", "cp1252", "utf-8"])
+def test_unix_encoding_fallback_preserves_styles_and_cursor(
+    unix_screen, monkeypatch, buffered, encoding
+):
+    screen_cls, curses = unix_screen
+    curses.tparm.return_value = b"\x1b[1;1H"
+    screen = screen_cls.__new__(screen_cls)
+    screen._cur_x = screen._cur_y = -1
+    screen._move_y_x = b"cup"
+    screen._buffering = False
+    screen._frame_parts = []
+    raw = io.BytesIO()
+    output = io.TextIOWrapper(raw, encoding=encoding, errors="strict")
+    monkeypatch.setattr(sys, "stdout", output)
+    styled = "\x1b[31méΩ\x1b[0m"
+    if buffered:
+        screen.begin_frame()
+    screen.print_at(styled, 0, 0, 2)
+    screen.print_at("!", 2, 0, 1)
+    screen.flush_frame()
+    expected = ("\x1b[1;1H" + styled + "!").encode(encoding, errors="replace")
+    assert raw.getvalue() == expected
+    assert (screen._cur_x, screen._cur_y) == (3, 0)
+    assert not screen._buffering
+    # A subsequent frame must be usable and preserve the physical cursor.
+    screen.begin_frame()
+    screen.print_at("Z", 3, 0, 1)
+    screen.flush_frame()
+    assert raw.getvalue() == expected + b"Z"
 
 
 def test_unix_show_restores_screen_without_prompting(unix_screen, monkeypatch):

@@ -5,6 +5,7 @@ import io
 import json
 from importlib.metadata import distribution, version
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 
 def main() -> None:
@@ -23,6 +24,29 @@ def main() -> None:
     assert all(hasattr(package, name) for name in package.__all__)
     assert effects.snow.preset("light") == SnowSettings(intensity=0.005)
     assert "snow" in effects.names()
+    for name in ("water", "smoke", "metaballs", "cloth", "terrain"):
+        info = getattr(effects, name)
+        assert info.presets()
+        effect = package.effect_registry.create(name, Buffer(8, 16), " ", seed=42)
+        effect.start()
+        try:
+            effect.update(1 / 30)
+            effect.resize((20, 10))
+            effect.draw(Buffer(10, 20))
+        finally:
+            effect.close()
+    assert effects.diffusion.preset("organic").shading
+    assert "nature_demo" in package.__valid_demos__
+    assert (
+        package.capture(
+            effect_factory=package.nature_demo.build_scene,
+            on_frame=lambda frame: None,
+            frames=2,
+            width=80,
+            height=24,
+        )
+        == 2
+    )
     command = next(
         entry
         for entry in distribution("bruhanimate").entry_points
@@ -41,6 +65,16 @@ def main() -> None:
         == 2
     )
     assert isinstance(captured[0], package.Frame)
+    with TemporaryDirectory() as directory:
+        svg = package.save_svg(captured[0], Path(directory) / "frame.svg")
+        assert "<svg" in svg.read_text(encoding="utf-8")
+    assert "routing_demo" in package.__valid_demos__
+    accents = package.Scene(
+        package.PathEffect([(0, 0), (1, 0)], size=(2, 1), mode="trace"),
+        package.PulseEffect((0, 0), size=(2, 1)),
+        package.RippleEffect((1, 0), size=(2, 1), metric="manhattan"),
+    )
+    assert package.capture(accents, on_frame=lambda frame: None, frames=2) == 2
     recording = io.StringIO()
     assert effects.noise.record(recording, seed=42, frames=2, width=4, height=2) == 2
     assert json.loads(recording.getvalue().splitlines()[0]) == {
@@ -50,6 +84,52 @@ def main() -> None:
     }
     buffer = Buffer(1, 2)
     assert "beam_demo" in package.__valid_demos__
+    assert "image_demo" in package.__valid_demos__
+    for transition in (package.FocusImageEffect, package.DissolveImageEffect):
+        image = transition("X", x=0, y=0, duration=1, seed=42)
+        image.start()
+        image.update(1)
+        assert image.finished
+        frame = Buffer(1, 1)
+        image.draw(frame)
+        assert frame.get_char(0, 0) == "X"
+        image.close()
+    sequence = package.AnimationSequence(
+        package.SequenceStep(
+            lambda: package.WipeImageEffect(
+                "AB", x=0, y=0, duration=1, direction="right"
+            ),
+            duration=1,
+            name="wipe",
+        )
+    )
+    sequence.resize((2, 1))
+    sequence.start()
+    try:
+        sequence.update(1)
+        frame = Buffer(1, 2)
+        sequence.draw(frame)
+        assert sequence.finished and frame.buffer == [list("AB")]
+    finally:
+        sequence.close()
+    resized_effect = package.DiffusionEffect(Buffer(2, 3), " ")
+    resized_effect.resize((5, 4))
+    resized_effect.update(0.1)
+    resized_effect.draw(Buffer(4, 5))
+    resized_effect.close()
+    styled = package.Scene(
+        package.Layer(
+            package.ImageEffect("AB", x=0, y=0),
+            mask=package.ImageMask("# ", x=0, y=0),
+            style=package.TextStyle(foreground=231),
+            preserve_background=True,
+        )
+    )
+    styled.start()
+    frame = Buffer(1, 2).clear_buffer(val=".")
+    styled.draw(frame)
+    assert "231mA" in frame.get_char(0, 0) and frame.get_char(1, 0) == "."
+    styled.close()
     panels = []
     panel = package.Panel(
         effect_factory=lambda local: package.SnowEffect(

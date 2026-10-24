@@ -16,6 +16,7 @@ limitations under the License.
 
 from ..bruhutil import VALID_DIRECTIONS
 from ..bruhutil.bruhffer import Buffer
+from ._resize import raster
 from .base_effect import BaseEffect
 from .settings import OffsetSettings, validated_settings
 
@@ -62,3 +63,8 @@ class OffsetEffect(BaseEffect):
                 self.buffer.put_at(0, y, row[::-1])
             else:
                 self.buffer.put_at(0, y, row)
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Retain visible cells and expand the simulation raster without ticking."""
+        self.buffer = raster(self.buffer, size, self.background)
+        super().resize(size)

@@ -671,7 +671,17 @@ else:
         @staticmethod
         def _safe_write(msg):
             try:
-                sys.stdout.write(msg)
+                try:
+                    sys.stdout.write(msg)
+                except UnicodeEncodeError as error:
+                    # Handle encoding where writing actually happens, including
+                    # batched frames. Preserve encodable glyphs and ANSI escapes;
+                    # each unsupported single-cell glyph becomes one question mark.
+                    sys.stdout.write(
+                        msg.encode(error.encoding, errors="replace").decode(
+                            error.encoding
+                        )
+                    )
             except IOError:
                 pass
 
@@ -679,18 +689,11 @@ else:
             cursor = ""
             if x != self._cur_x or y != self._cur_y:
                 cursor = curses.tparm(self._move_y_x, y, x).decode("utf-8")
-            try:
-                piece = cursor + str(text)
-                if self._buffering:
-                    self._frame_parts.append(piece)
-                else:
-                    self._safe_write(piece)
-            except UnicodeEncodeError:
-                piece = cursor + "?" * len(str(text))
-                if self._buffering:
-                    self._frame_parts.append(piece)
-                else:
-                    self._safe_write(piece)
+            piece = cursor + str(text)
+            if self._buffering:
+                self._frame_parts.append(piece)
+            else:
+                self._safe_write(piece)
             self._cur_x = x + width
             self._cur_y = y
 

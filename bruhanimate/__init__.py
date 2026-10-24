@@ -17,6 +17,8 @@ from .bruheffect import (
     BaseEffect,
     BoidsEffect,
     BoidsSettings,
+    ClothEffect,
+    ClothSettings,
     DiffusionEffect,
     DiffusionSettings,
     DrawLinesEffect,
@@ -34,6 +36,8 @@ from .bruheffect import (
     Line,
     MatrixEffect,
     MatrixSettings,
+    MetaballsEffect,
+    MetaballsSettings,
     NoiseEffect,
     NoiseSettings,
     OffsetEffect,
@@ -47,18 +51,25 @@ from .bruheffect import (
     RainSettings,
     SandEffect,
     SandSettings,
+    SmokeEffect,
+    SmokeSettings,
     SnowEffect,
     SnowSettings,
     StarEffect,
     StarSettings,
     StaticEffect,
     TerminalEffect,
+    TerrainEffect,
+    TerrainSettings,
     TwinkleEffect,
     TwinkleSettings,
     VoronoiEffect,
     VoronoiSettings,
+    WaterEffect,
+    WaterSettings,
     effect_registry,
 )
+from .bruheffect.settings import AudioMode
 from .bruhutil import (
     FLAKE_WEIGHT_CHARS,
     GRADIENTS,
@@ -82,7 +93,16 @@ from .bruhutil import (
 )
 from .capture import Frame, capture, record
 from .effects import EffectName
+from .export import ExportFormat, ExportStyle, export_animation, save_png, save_svg
 from .grid import GridViewport, draw_grid
+from .image import (
+    DissolveDirection,
+    DissolveImageEffect,
+    FocusImageEffect,
+    GlitchImageEffect,
+    WipeDirection,
+    WipeImageEffect,
+)
 from .keyboard import (
     BindingHint,
     EventResult,
@@ -94,6 +114,8 @@ from .keyboard import (
     KeyName,
 )
 from .layout import Column, Fixed, Flex, Row, Slot, Spacer
+from .masks import CellMask, ImageMask
+from .motion import PathEffect, PathMode, PulseEffect, RippleEffect, RippleMetric
 from .panel import Panel
 from .playback import Playback
 from .player import (
@@ -106,6 +128,7 @@ from .player import (
 )
 from .resize import Resizable, ResizePolicy
 from .scene import ImageEffect, Layer, Scene, TimedOverlay
+from .sequence import AnimationSequence, SequenceStep
 from .views import LogView, LogWrap, ScrollView
 from .widgets import (
     Label,
@@ -118,10 +141,31 @@ from .widgets import (
 )
 
 if TYPE_CHECKING:
-    from .demos import beam_demo, dashboard_demo, tv_demo, windows_demo
+    from .demos import (
+        beam_demo,
+        cloth_demo,
+        dashboard_demo,
+        image_demo,
+        metaballs_demo,
+        nature_demo,
+        routing_demo,
+        smoke_demo,
+        terrain_demo,
+        tv_demo,
+        water_demo,
+        windows_demo,
+    )
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __valid_demos__ = [
+    "water_demo",
+    "smoke_demo",
+    "metaballs_demo",
+    "cloth_demo",
+    "terrain_demo",
+    "nature_demo",
+    "routing_demo",
+    "image_demo",
     "dashboard_demo",
     "windows_demo",
     "tv_demo",
@@ -168,11 +212,55 @@ def __dir__():
 
 
 __all__ = [
+    "nature_demo",
+    "water_demo",
+    "smoke_demo",
+    "metaballs_demo",
+    "cloth_demo",
+    "terrain_demo",
+    "WaterEffect",
+    "WaterSettings",
+    "SmokeEffect",
+    "SmokeSettings",
+    "MetaballsEffect",
+    "MetaballsSettings",
+    "ClothEffect",
+    "ClothSettings",
+    "TerrainEffect",
+    "TerrainSettings",
+    "PathEffect",
+    "PathMode",
+    "PulseEffect",
+    "RippleEffect",
+    "RippleMetric",
+    "ExportFormat",
+    "ExportStyle",
+    "export_animation",
+    "save_png",
+    "save_svg",
+    "routing_demo",
+    "CellMask",
+    "ImageMask",
+    "FocusImageEffect",
+    "DissolveImageEffect",
+    "DissolveDirection",
+    "image_demo",
+    "GlitchImageEffect",
+    "WipeImageEffect",
+    "WipeDirection",
+    "AnimationSequence",
+    "SequenceStep",
     "ScrollView",
     "LogView",
     "LogWrap",
-    "BindingHint", "EventResult", "FocusDirection", "FocusGroup", "FocusTarget",
-    "KeyBinding", "KeyBindings", "KeyName",
+    "BindingHint",
+    "EventResult",
+    "FocusDirection",
+    "FocusGroup",
+    "FocusTarget",
+    "KeyBinding",
+    "KeyBindings",
+    "KeyName",
     "Column",
     "Fixed",
     "Flex",
@@ -214,6 +302,7 @@ __all__ = [
     "Buffer",
     "AudioEffect",
     "AudioSettings",
+    "AudioMode",
     "AutomatonEffect",
     "AutomatonSettings",
     "BaseEffect",

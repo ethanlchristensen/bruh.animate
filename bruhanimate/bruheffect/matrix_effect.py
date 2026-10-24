@@ -256,14 +256,22 @@ class MatrixEffect(BaseEffect):
                 )
 
     def update(self, dt: float) -> None:
-        """Advance one simulation tick; dt is measured in seconds."""
+        """Advance one tick, repainting character and color changes independently.
+
+        dt is measured in seconds. A character-only change keeps the current
+        gradient offset; color_randomness=0 does not freeze character updates.
+        """
         tick = self._tick
         self._tick += 1
         self.__initialize_growth()
         if tick == 0:
             self.__initialize_buffer()
         else:
+            # Reuse identical styled glyphs within this tick. Keeping this cache
+            # local respects palette and color-environment changes between ticks.
+            colored_cells: dict[tuple[str, int], str] = {}
             for y in range(self.buffer.height()):
+                changed_columns = []
                 if (
                     tick % self.__character_halts[y] == 0
                     and self.rng.random() < self.__character_randomness_one
@@ -271,23 +279,31 @@ class MatrixEffect(BaseEffect):
                     self.__character_ticks[y] += 1
                     for x in range(self.buffer.width()):
                         if self.rng.random() < self.__character_randomness_two:
-                            self.__buffer_characters[y][x] = self.rng.choice(
-                                self.__character_choices
-                            )
+                            character = self.rng.choice(self.__character_choices)
+                            if character != self.__buffer_characters[y][x]:
+                                changed_columns.append(x)
+                                self.__buffer_characters[y][x] = character
 
-                if (
+                colors_changed = (
                     tick % self.__color_halts[y] == 0
                     and self.rng.random() < self.__color_randomness
-                ):
+                )
+                if colors_changed:
                     self.__color_ticks[y] += 1
-                    for x in range(self.buffer.width()):
-                        self.buffer.put_char(
-                            x,
-                            y,
-                            bruhcolored(
-                                self.__buffer_characters[y][x],
-                                color=self.__gradient[
-                                    (x - self.__color_ticks[y]) % len(self.__gradient)
-                                ],
-                            ),
-                        )
+                if changed_columns or colors_changed:
+                    columns = (
+                        range(self.buffer.width())
+                        if colors_changed
+                        else changed_columns
+                    )
+                    for x in columns:
+                        character = self.__buffer_characters[y][x]
+                        color = self.__gradient[
+                            (x - self.__color_ticks[y]) % len(self.__gradient)
+                        ]
+                        key = (character, color)
+                        cell = colored_cells.get(key)
+                        if cell is None:
+                            cell = bruhcolored(character, color=color).colored
+                            colored_cells[key] = cell
+                        self.buffer.put_char(x, y, cell)

@@ -28,13 +28,18 @@ Effects
 - **firework_effect** — Firework explosions with multiple burst patterns. Configure with ``FireworkSettings``.
 - **julia_effect** — Animated Julia-set fractal.
 - **draw_lines_effect** — Bresenham line drawing onto the buffer. Configure with ``DrawLinesSettings``.
-- **audio_effect** — System audio visualizer (bars, waveform, mirror, and 20+ modes). Configure with ``AudioSettings``.
+- **audio_effect** — System audio visualizer with seven modes. Configure with ``AudioSettings``.
 - **boids_effect** — Reynolds flocking simulation (separation, alignment, cohesion). Configure with ``BoidsSettings``.
 - **sand_effect** — Falling-sand cellular automaton; particles pile up at the bottom. Configure with ``SandSettings``.
 - **diffusion_effect** — Gray-Scott reaction-diffusion; produces organic spots and stripes. Configure with ``DiffusionSettings``.
 - **automaton_effect** — Wolfram 1-D elementary cellular automaton scrolling downward. Configure with ``AutomatonSettings``.
 - **voronoi_effect** — Animated Voronoi diagram with drifting seed points. Configure with ``VoronoiSettings``.
 - **perlin_effect** — Smooth animated noise field from multiple sine-wave octaves. Configure with ``PerlinSettings``.
+- **water_effect** — See :doc:`../natural_effects`; configure with ``WaterSettings``.
+- **smoke_effect** — See :doc:`../natural_effects`; configure with ``SmokeSettings``.
+- **metaballs_effect** — See :doc:`../natural_effects`; configure with ``MetaballsSettings``.
+- **cloth_effect** — See :doc:`../natural_effects`; configure with ``ClothSettings``.
+- **terrain_effect** — See :doc:`../natural_effects`; configure with ``TerrainSettings``.
 - **settings** — All settings dataclasses live here.
 - **registry** — Discoverable effect registry; create effects by name, list presets, register custom effects.
 
@@ -63,6 +68,11 @@ Effects
    boids_effect
    sand_effect
    diffusion_effect
+   water_effect
+   smoke_effect
+   metaballs_effect
+   cloth_effect
+   terrain_effect
    automaton_effect
    voronoi_effect
    perlin_effect

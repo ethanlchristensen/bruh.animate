@@ -245,6 +245,7 @@ def _populate():
     from .audio_effect import AudioEffect
     from .automaton_effect import AutomatonEffect
     from .boids_effect import BoidsEffect
+    from .cloth_effect import ClothEffect
     from .diffusion_effect import DiffusionEffect
     from .draw_lines_effect import DrawLinesEffect
     from .fire_effect import FireEffect
@@ -252,6 +253,7 @@ def _populate():
     from .game_of_life_effect import GameOfLifeEffect
     from .julia_effect import JuliaEffect
     from .matrix_effect import MatrixEffect
+    from .metaballs_effect import MetaballsEffect
     from .noise_effect import NoiseEffect
     from .offset_effect import OffsetEffect
     from .perlin_effect import PerlinEffect
@@ -262,28 +264,36 @@ def _populate():
         AudioSettings,
         AutomatonSettings,
         BoidsSettings,
+        ClothSettings,
         DiffusionSettings,
         DrawLinesSettings,
         FireSettings,
         FireworkSettings,
         GameOfLifeSettings,
         MatrixSettings,
+        MetaballsSettings,
         NoiseSettings,
         OffsetSettings,
         PerlinSettings,
         PlasmaSettings,
         RainSettings,
         SandSettings,
+        SmokeSettings,
         SnowSettings,
         StarSettings,
+        TerrainSettings,
         TwinkleSettings,
         VoronoiSettings,
+        WaterSettings,
     )
+    from .smoke_effect import SmokeEffect
     from .snow_effect import SnowEffect
     from .star_effect import StarEffect
     from .static_effect import StaticEffect
+    from .terrain_effect import TerrainEffect
     from .twinkle_effect import TwinkleEffect
     from .voronoi_effect import VoronoiEffect
+    from .water_effect import WaterEffect
 
     effect_registry.register(
         "static",
@@ -478,6 +488,7 @@ def _populate():
             "coral": DiffusionSettings(f=0.0545, k=0.062),
             "spots": DiffusionSettings(f=0.035, k=0.065),
             "stripes": DiffusionSettings(f=0.026, k=0.051),
+            "organic": DiffusionSettings(shading=True, seed_pattern="scattered"),
         },
     )
     effect_registry.register(
@@ -518,49 +529,74 @@ def _populate():
         "audio",
         AudioEffect,
         settings_cls=AudioSettings,
-        description="System audio visualizer (bars, mirror, waveform, spectrum, radial, rain, tunnel, ripple, vortex, wave, starfield, fireworks, interference, bounce, lightning, aurora, orbit, scope, grid, helix, lissajous, sunburst, mandala, comet, weave).",
+        description="Audio-reactive objects, frequency tiles, moving light pools, EQ bars and volume/frequency history.",
         presets={
-            "bars": AudioSettings(mode="bars", color=True, smoothing=0.25),
-            "mirror": AudioSettings(mode="mirror", color=True, smoothing=0.25),
-            "waveform": AudioSettings(mode="waveform", color=True, smoothing=0.1),
-            "spectrum": AudioSettings(mode="spectrum", color=True, smoothing=0.2),
-            "radial": AudioSettings(mode="radial", color=True, smoothing=0.3),
-            "rain": AudioSettings(mode="rain", color=True, smoothing=0.2),
+            "objects": AudioSettings(mode="objects", smoothing=0.65),
+            "tiles": AudioSettings(mode="tiles", smoothing=0.75),
+            "glow": AudioSettings(mode="glow", smoothing=0.8),
+            "bars": AudioSettings(mode="bars", color=True, bar_char="#", smoothing=0.7),
+            "mirror": AudioSettings(
+                mode="mirror", color=True, bar_char="#", smoothing=0.7
+            ),
+            "waveform": AudioSettings(mode="waveform", color=True, smoothing=0.6),
+            "spectrum": AudioSettings(mode="spectrum", color=True, smoothing=0.6),
             "minimal": AudioSettings(mode="bars", color=False, smoothing=0.6),
-            "tunnel": AudioSettings(mode="tunnel", color=True, smoothing=0.2),
-            "ripple": AudioSettings(
-                mode="ripple", color=True, smoothing=0.15, sensitivity=1.5
-            ),
-            "vortex": AudioSettings(mode="vortex", color=True, smoothing=0.2),
-            "wave": AudioSettings(mode="wave", color=True, smoothing=0.25),
-            "starfield": AudioSettings(mode="starfield", color=True, smoothing=0.2),
-            "fireworks": AudioSettings(
-                mode="fireworks", color=True, smoothing=0.15, sensitivity=2.0
-            ),
-            "interference": AudioSettings(
-                mode="interference", color=True, smoothing=0.2
-            ),
-            "bounce": AudioSettings(mode="bounce", color=True, smoothing=0.2),
-            "lightning": AudioSettings(
-                mode="lightning", color=True, smoothing=0.1, sensitivity=1.5
-            ),
-            "aurora": AudioSettings(mode="aurora", color=True, smoothing=0.3),
-            "orbit": AudioSettings(mode="orbit", color=True, smoothing=0.2),
-            "orbit_gradient": AudioSettings(
-                mode="orbit_gradient", color=True, smoothing=0.2
-            ),
-            "scope": AudioSettings(
-                mode="scope", color=True, smoothing=0.0, sensitivity=3.0
-            ),
-            "grid": AudioSettings(mode="grid", color=True, smoothing=0.2),
-            "helix": AudioSettings(mode="helix", color=True, smoothing=0.25),
-            "lissajous": AudioSettings(mode="lissajous", color=True, smoothing=0.2),
-            "sunburst": AudioSettings(mode="sunburst", color=True, smoothing=0.2),
-            "mandala": AudioSettings(mode="mandala", color=True, smoothing=0.25),
-            "comet": AudioSettings(
-                mode="comet", color=True, smoothing=0.15, sensitivity=1.5
-            ),
-            "weave": AudioSettings(mode="weave", color=True, smoothing=0.2),
+        },
+    )
+
+    effect_registry.register(
+        "water",
+        WaterEffect,
+        settings_cls=WaterSettings,
+        description="Damped water ripples with reflecting edges and interacting impulses.",
+        presets={
+            "pond": WaterSettings(),
+            "rain": WaterSettings(drop_chance=0.5, damping=0.975),
+            "storm": WaterSettings(drop_chance=0.9, strength=2.0, damping=0.97),
+        },
+    )
+    effect_registry.register(
+        "smoke",
+        SmokeEffect,
+        settings_cls=SmokeSettings,
+        description="Rising smoke or sinking ink, with density advection and obstacles.",
+        presets={
+            "plume": SmokeSettings(),
+            "ink": SmokeSettings(style="ink", turbulence=0.8, decay=0.995),
+            "windy": SmokeSettings(turbulence=0.9, source_width=0.25),
+        },
+    )
+    effect_registry.register(
+        "metaballs",
+        MetaballsEffect,
+        settings_cls=MetaballsSettings,
+        description="Implicit blobs merging and separating along independent orbits.",
+        presets={
+            "lava": MetaballsSettings(),
+            "orbit": MetaballsSettings(count=3, speed=0.06, radius=0.22),
+            "outline": MetaballsSettings(filled=False),
+        },
+    )
+    effect_registry.register(
+        "cloth",
+        ClothEffect,
+        settings_cls=ClothSettings,
+        description="Pinned waving cloth carrying a flag, text, or custom ASCII art.",
+        presets={
+            "flag": ClothSettings(),
+            "checker": ClothSettings(pattern="checker"),
+            "banner": ClothSettings(pattern="text"),
+        },
+    )
+    effect_registry.register(
+        "terrain",
+        TerrainEffect,
+        settings_cls=TerrainSettings,
+        description="Perspective flyover of seeded hills with shaded or contour rendering.",
+        presets={
+            "hills": TerrainSettings(),
+            "mountains": TerrainSettings(roughness=1.2, scale=0.08),
+            "contours": TerrainSettings(style="contours"),
         },
     )
 

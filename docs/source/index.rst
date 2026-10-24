@@ -33,8 +33,13 @@ Start here
 
    getting_started
    discovery
+   natural_effects
    capture
+   exports
+   motion
    composition
+   images
+   sequencing
    concepts
 
 .. toctree::
@@ -59,4 +64,7 @@ Start here
    :caption: Project
 
    contributing
+   performance
+   platform_checks
    releasing
+   release_1_3

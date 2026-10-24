@@ -7,6 +7,7 @@ import threading
 from contextlib import ExitStack
 
 from ..bruhutil.bruhffer import Buffer
+from ._resize import raster
 from .base_effect import BaseEffect
 
 
@@ -167,6 +168,9 @@ class TerminalEffect(BaseEffect):
     def update(self, dt: float) -> None:
         self.update_history_from_queue()
         del self.terminal_history[: -max(100, self.height * 4)]
+        self._paint()
+
+    def _paint(self) -> None:
         self.buffer.clear_buffer(val=None)
 
         all_lines = list(self.terminal_history)
@@ -251,3 +255,11 @@ class TerminalEffect(BaseEffect):
         with ExitStack() as cleanup:
             cleanup.callback(super().close)
             cleanup.callback(self._close_process)
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Repaint output/input without draining the queue or resizing a process."""
+        self.buffer = raster(self.buffer, size, self.background)
+        self.width, self.height = size
+        self.max_lines = max(1, self.height - 2)
+        self._paint()
+        super().resize(size)

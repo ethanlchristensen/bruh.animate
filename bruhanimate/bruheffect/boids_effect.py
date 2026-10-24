@@ -18,6 +18,7 @@ import numpy as np
 from bruhcolor import bruhcolored as bc
 
 from ..bruhutil import Buffer
+from ._resize import raster
 from .base_effect import BaseEffect
 from .settings import BoidsSettings, validated_settings
 
@@ -77,8 +78,6 @@ class BoidsEffect(BaseEffect):
 
     def update(self, dt: float) -> None:
         """Advance one simulation tick; dt is measured in seconds."""
-        self.buffer.clear_buffer(val=self.background)
-
         pos = self._pos
         vel = self._vel
 
@@ -110,6 +109,11 @@ class BoidsEffect(BaseEffect):
         self._pos = new_pos
         self._vel = new_vel
 
+        self._paint()
+
+    def _paint(self) -> None:
+        self.buffer.clear_buffer(val=self.background)
+        new_pos, new_vel = self._pos, self._vel
         xs = new_pos[:, 0].astype(int)
         ys = new_pos[:, 1].astype(int)
         spd_norm = (np.linalg.norm(new_vel, axis=1) / max(self.max_speed, 1e-8)).clip(
@@ -121,3 +125,11 @@ class BoidsEffect(BaseEffect):
             color = _heat(float(spd_norm[i])) if self.color else None
             ch = bc(self.char, color=color) if color is not None else self.char
             self.buffer.put_char(int(xs[i]), int(ys[i]), ch)
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Wrap positions into the new bounds, preserving flock size and velocities."""
+        self.buffer = raster(self.buffer, size, self.background)
+        self._w, self._h = size
+        self._pos %= np.array([[self._w, self._h]])
+        self._paint()
+        super().resize(size)

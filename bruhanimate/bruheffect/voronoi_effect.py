@@ -18,6 +18,7 @@ import numpy as np
 from bruhcolor import bruhcolored as bc
 
 from ..bruhutil import Buffer
+from ._resize import raster
 from .base_effect import BaseEffect
 from .settings import VoronoiSettings, validated_settings
 
@@ -86,6 +87,9 @@ class VoronoiEffect(BaseEffect):
                 self._seeds[i, 3] *= -1
                 self._seeds[i, 1] = float(np.clip(self._seeds[i, 1], 0, self._h - 1))
 
+        self._paint()
+
+    def _paint(self) -> None:
         sx, sy = self._seeds[:, 0], self._seeds[:, 1]
 
         # Assign each pixel to its nearest seed
@@ -114,3 +118,16 @@ class VoronoiEffect(BaseEffect):
             if 0 <= x < self._w and 0 <= y < self._h:
                 color = 226 if self.color else None
                 self.buffer.put_char(x, y, bc("*", color=color) if color else "*")
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Clamp sites to new bounds, retaining velocities and repainting regions."""
+        self.buffer = raster(self.buffer, size, self.background)
+        self._w, self._h = size
+        for axis, extent in enumerate(size):
+            positions = self._seeds[:, axis]
+            self._seeds[:, axis] = np.where(
+                positions >= extent, extent - 1, np.maximum(0, positions)
+            )
+        self._X, self._Y = np.meshgrid(np.arange(self._w), np.arange(self._h))
+        self._paint()
+        super().resize(size)

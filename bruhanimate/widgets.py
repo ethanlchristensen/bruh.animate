@@ -3,47 +3,17 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Literal
 
 from .bruhutil.bruhffer import Buffer
 from .grid import _glyph
 from .scene import _seconds
+from .styling import TextStyle as TextStyle
 
 TextSource = str | Callable[[], str]
 TextAlign = Literal["left", "center", "right"]
 VerticalAlign = Literal["top", "middle", "bottom"]
 TextOverflow = Literal["clip", "ellipsis", "wrap"]
-
-
-@dataclass(frozen=True)
-class TextStyle:
-    """Per-cell ANSI styling; palette colors are 0..255, or None for defaults."""
-
-    foreground: int | None = None
-    background: int | None = None
-    bold: bool = False
-
-    def __post_init__(self) -> None:
-        for name, value in (
-            ("foreground", self.foreground),
-            ("background", self.background),
-        ):
-            if value is not None:
-                if type(value) is not int:
-                    raise TypeError(f"{name} must be an integer or None")
-                if not 0 <= value <= 255:
-                    raise ValueError(f"{name} must be between 0 and 255")
-        if type(self.bold) is not bool:
-            raise TypeError("bold must be a bool")
-
-    def _cell(self, glyph: str) -> str:
-        codes = ["1"] if self.bold else []
-        if self.foreground is not None:
-            codes.append(f"38;5;{self.foreground}")
-        if self.background is not None:
-            codes.append(f"48;5;{self.background}")
-        return f"\x1b[{';'.join(codes)}m{glyph}\x1b[0m" if codes else glyph
 
 
 def _validate_text(value: str, *, multiline: bool) -> str:

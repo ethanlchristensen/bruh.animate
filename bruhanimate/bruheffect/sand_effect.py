@@ -18,6 +18,7 @@ import numpy as np
 from bruhcolor import bruhcolored as bc
 
 from ..bruhutil import Buffer
+from ._resize import raster
 from .base_effect import BaseEffect
 from .settings import SandSettings, validated_settings
 
@@ -39,7 +40,7 @@ class SandEffect(BaseEffect):
     Falling-sand cellular automaton.
 
     Particles spawn randomly at the top of the screen and fall downward,
-    cascading diagonally when blocked. Color indicates height — hotter
+    cascading diagonally when blocked. Color indicates height â€” hotter
     at the top, cooler toward the bottom. Particles drain from the
     bottom row to keep the simulation flowing indefinitely.
     """
@@ -58,7 +59,7 @@ class SandEffect(BaseEffect):
         self._grid = np.zeros((self._h, self._w), dtype=np.uint8)
 
     def set_spawn_rate(self, rate: float):
-        """Set the per-column probability of spawning a new particle each frame (0–1)."""
+        """Set the per-column probability of spawning a new particle each frame (0â€“1)."""
         self.spawn_rate = max(0.0, min(1.0, rate))
 
     def update(self, dt: float) -> None:
@@ -100,3 +101,14 @@ class SandEffect(BaseEffect):
             color = _heat(ratio) if self.color else None
             ch = bc(self.char, color=color) if color is not None else self.char
             self.buffer.put_char(int(c), int(r), ch)
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Anchor retained grains to the bottom; added cells are empty."""
+        resized = raster(self.buffer, size, self.background, bottom=True)
+        width, height = size
+        rows, cols = min(height, self._h), min(width, self._w)
+        grid = np.zeros((height, width), dtype=self._grid.dtype)
+        grid[-rows:, :cols] = self._grid[-rows:, :cols]
+        self._grid, self._w, self._h = grid, width, height
+        self.buffer = resized
+        super().resize(size)

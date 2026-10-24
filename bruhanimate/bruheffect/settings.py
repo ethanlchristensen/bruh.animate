@@ -23,32 +23,13 @@ from typing import Literal, TypeVar, get_args, get_origin, get_type_hints
 from ..bruhutil.bruhtypes import FireworkColorType, FireworkType
 
 AudioMode = Literal[
+    "objects",
+    "tiles",
+    "glow",
     "bars",
     "mirror",
     "waveform",
     "spectrum",
-    "radial",
-    "rain",
-    "tunnel",
-    "ripple",
-    "vortex",
-    "wave",
-    "starfield",
-    "fireworks",
-    "interference",
-    "bounce",
-    "lightning",
-    "aurora",
-    "orbit",
-    "orbit_gradient",
-    "scope",
-    "grid",
-    "helix",
-    "lissajous",
-    "sunburst",
-    "mandala",
-    "comet",
-    "weave",
 ]
 LifePalette = Literal[
     "GREYSCALE", "GREYSCALE_r", "GREYSCALE_MUTED", "RAINBOW", "RAINBOW_r"
@@ -156,6 +137,95 @@ class EffectSettings:
 S = TypeVar("S", bound=EffectSettings)
 
 
+@dataclass
+class WaterSettings(EffectSettings):
+    """Reflecting water surface. Speed is cells/tick; damping retains wave motion.
+
+    drop_chance is the probability of a random impulse per tick. The maximum
+    wave_speed keeps the two-dimensional finite-difference scheme stable.
+    """
+
+    color: bool = True
+    wave_speed: float = _bounded(0.45, 0.05, 0.7)
+    damping: float = _bounded(0.985, 0, 1)
+    drop_chance: float = _bounded(0.12, 0, 1)
+    strength: float = _bounded(1.0, 0, 5)
+
+
+@dataclass
+class SmokeSettings(EffectSettings):
+    """Advected density in an artistic curl field, with an optional obstacle mask.
+
+    rise is cells/tick; turbulence scales horizontal drift. decay retains
+    density per tick. source_width is a fraction of viewport width. Ink sinks.
+    """
+
+    color: bool = True
+    style: Literal["smoke", "ink"] = "smoke"
+    rise: float = _bounded(0.65, 0, 0.9)
+    turbulence: float = _bounded(0.6, 0, 0.9)
+    decay: float = _bounded(0.985, 0, 1)
+    diffusion: float = _bounded(0.10, 0, 0.25)
+    intensity: float = _bounded(0.8, 0, 1)
+    source_width: float = _bounded(0.15, 0.01, 1)
+
+
+@dataclass
+class MetaballsSettings(EffectSettings):
+    """Merging implicit surfaces. Radius is a fraction of the shorter visual axis.
+
+    speed is radians/tick; threshold selects the field's visible isosurface.
+    Terminal cells are treated as twice as tall as they are wide.
+    """
+
+    color: bool = True
+    count: int = _bounded(5, 1, 20)
+    radius: float = _bounded(0.28, 0.05, 0.8)
+    speed: float = _bounded(0.035, 0, 0.5)
+    threshold: float = _bounded(1.0, 0.3, 3)
+    filled: bool = True
+
+
+@dataclass
+class ClothSettings(EffectSettings):
+    """Pinned waving cloth; a kinematic animation, not a spring simulation.
+
+    amplitude is a fraction of viewport height; wavelength counts wave cycles
+    across the cloth; speed is radians/tick. Text contains single-cell glyphs.
+    Supply custom ASCII rows to ClothEffect(image=...) to carry your own art.
+    """
+
+    color: bool = True
+    pattern: Literal["flag", "checker", "text"] = "flag"
+    text: str = "BRUH"
+    amplitude: float = _bounded(0.12, 0, 0.3)
+    speed: float = _bounded(0.12, 0, 1)
+    wavelength: float = _bounded(1.5, 0.25, 6)
+
+    def validate(self) -> None:
+        super().validate()
+        if not self.text:
+            raise ValueError("ClothSettings.text must not be empty")
+        for glyph in self.text:
+            _glyph(glyph, "ClothSettings.text")
+
+
+@dataclass
+class TerrainSettings(EffectSettings):
+    """Perspective flyover of seeded coherent terrain, with a fixed camera height.
+
+    speed is world units/tick; scale is noise frequency per world unit;
+    roughness scales elevation; horizon is a fraction of viewport height.
+    """
+
+    color: bool = True
+    style: Literal["shaded", "contours"] = "shaded"
+    speed: float = _bounded(0.12, 0, 2)
+    scale: float = _bounded(0.12, 0.02, 1)
+    roughness: float = _bounded(0.8, 0.1, 1.2)
+    horizon: float = _bounded(0.3, 0, 0.8)
+
+
 def validated_settings(value: S | None, expected: type[S]) -> S:
     """Get defaults or validate a supplied configuration before effect allocation."""
     if value is None:
@@ -170,15 +240,34 @@ def validated_settings(value: S | None, expected: type[S]) -> S:
 
 @dataclass
 class AudioSettings(EffectSettings):
-    """Audio display. num_bars=0 selects automatically; smoothing is in [0, 1]."""
+    """Seven audio modes with fixed-scale levels and a configurable dB noise floor.
+
+    num_bars=0 follows viewport width. smoothing retains the previous level on
+    release (0..1); attack retention is capped at 0.25 for a responsive rise.
+    noise_floor defaults to -65 dB to retain quieter mid/treble detail. Frequency
+    levels sum band energy on a sine-peak-equivalent scale; overall volume uses
+    RMS. Neither is a calibrated SPL reading. sensitivity scales both amplitudes.
+    bar_gain scales only Bars/Mirror height and peak caps (default 2, 1 restores
+    the analyzed height, 0 hides bars). It does not normalize individual frames.
+    """
 
     mode: AudioMode = "bars"
     bar_char: str = "|"
     smoothing: float = _bounded(0.7, 0, 1)
     num_bars: int = _bounded(0, 0, help="0 selects a bar count from terminal width")
     color: bool = True
-    sensitivity: float = _bounded(1.0, 0)
+    sensitivity: float = _bounded(
+        1.0, 0, help="Amplitude multiplier; 0 disables response"
+    )
     compact: bool = False
+    noise_floor: float = _bounded(
+        -65.0, -120, -1, help="Display floor in dB; lower includes quieter detail"
+    )
+    bar_gain: float = _bounded(
+        2.0,
+        0,
+        help="Bars/Mirror height multiplier; 1 uses analyzed levels, 0 hides bars",
+    )
 
 
 @dataclass
@@ -332,6 +421,8 @@ class DiffusionSettings(EffectSettings):
     """Feed/kill rates in [0, 1]; steps_per_frame counts substeps per update tick."""
 
     color: bool = True
+    shading: bool = field(default=False, kw_only=True)
+    seed_pattern: Literal["center", "scattered"] = field(default="center", kw_only=True)
     char: str = "."
     f: float = _bounded(0.055, 0, 1)
     k: float = _bounded(0.062, 0, 1)

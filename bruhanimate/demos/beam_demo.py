@@ -14,6 +14,7 @@ from bruhanimate import (
     ImageEffect,
     Layer,
     Playback,
+    ResizePolicy,
     Scene,
     TimedOverlay,
     draw_grid,
@@ -140,7 +141,9 @@ def build_scene(buffer: Buffer, playback: Playback[BeamState]) -> Scene:
     )
 
 
-def run(*, frames: int | None = None, fps: float = 60) -> int:
+def run(
+    *, frames: int | None = None, fps: float = 60, on_resize: ResizePolicy = "resize"
+) -> int:
     """Play the demo natively; hold the completed board until quit/frame limit."""
     playback = Playback(solve(), draw_state, steps_per_second=5)
     return play(
@@ -149,6 +152,7 @@ def run(*, frames: int | None = None, fps: float = 60) -> int:
         fps=fps,
         updates_per_second=60,
         event_handler=playback.handle_event,
+        on_resize=on_resize,
     )
 
 

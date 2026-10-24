@@ -18,22 +18,27 @@ from .bruheffect.settings import (
     AudioSettings,
     AutomatonSettings,
     BoidsSettings,
+    ClothSettings,
     DiffusionSettings,
     DrawLinesSettings,
     FireSettings,
     FireworkSettings,
     GameOfLifeSettings,
     MatrixSettings,
+    MetaballsSettings,
     NoiseSettings,
     OffsetSettings,
     PerlinSettings,
     PlasmaSettings,
     RainSettings,
     SandSettings,
+    SmokeSettings,
     SnowSettings,
     StarSettings,
+    TerrainSettings,
     TwinkleSettings,
     VoronoiSettings,
+    WaterSettings,
 )
 from .bruhutil.bruhtypes import EffectType as EffectName
 from .capture import Frame
@@ -257,7 +262,7 @@ SandPreset = Literal["light", "normal", "heavy"]
 sand: EffectInfo[SandSettings, SandPreset] = EffectInfo("sand")
 """Falling-sand cellular automaton; particles spawn at the top and pile up."""
 
-DiffusionPreset = Literal["coral", "spots", "stripes"]
+DiffusionPreset = Literal["coral", "spots", "stripes", "organic"]
 diffusion: EffectInfo[DiffusionSettings, DiffusionPreset] = EffectInfo("diffusion")
 """Gray-Scott reaction-diffusion; produces evolving organic spots and stripes."""
 
@@ -274,38 +279,49 @@ perlin: EffectInfo[PerlinSettings, PerlinPreset] = EffectInfo("perlin")
 """Smooth animated noise field built from multiple sine-wave octaves."""
 
 AudioPreset = Literal[
+    "objects",
+    "tiles",
+    "glow",
     "bars",
     "mirror",
     "waveform",
     "spectrum",
-    "radial",
-    "rain",
     "minimal",
-    "tunnel",
-    "ripple",
-    "vortex",
-    "wave",
-    "starfield",
-    "fireworks",
-    "interference",
-    "bounce",
-    "lightning",
-    "aurora",
-    "orbit",
-    "orbit_gradient",
-    "scope",
-    "grid",
-    "helix",
-    "lissajous",
-    "sunburst",
-    "mandala",
-    "comet",
-    "weave",
 ]
 audio: EffectInfo[AudioSettings, AudioPreset] = EffectInfo("audio")
-"""System audio visualizer (bars, mirror, waveform, spectrum, radial, rain, tunnel, ripple, vortex, wave, starfield, fireworks, interference, bounce, lightning, aurora, orbit, scope, grid, helix, lissajous, sunburst, mandala, comet, weave)."""
+"""Seven audio modes: objects, tiles, glow, bars, mirror, waveform, spectrum."""
+
+WaterPreset = Literal["pond", "rain", "storm"]
+water: EffectInfo[WaterSettings, WaterPreset] = EffectInfo("water")
+"""Damped water ripples with reflecting edges and interacting impulses."""
+
+SmokePreset = Literal["plume", "ink", "windy"]
+smoke: EffectInfo[SmokeSettings, SmokePreset] = EffectInfo("smoke")
+"""Rising smoke or sinking ink, with density advection and obstacles."""
+
+MetaballsPreset = Literal["lava", "orbit", "outline"]
+metaballs: EffectInfo[MetaballsSettings, MetaballsPreset] = EffectInfo("metaballs")
+"""Implicit blobs merging and separating along independent orbits."""
+
+ClothPreset = Literal["flag", "checker", "banner"]
+cloth: EffectInfo[ClothSettings, ClothPreset] = EffectInfo("cloth")
+"""Pinned waving cloth carrying a flag, text, or custom ASCII art."""
+
+TerrainPreset = Literal["hills", "mountains", "contours"]
+terrain: EffectInfo[TerrainSettings, TerrainPreset] = EffectInfo("terrain")
+"""Perspective flyover of seeded hills with shaded or contour rendering."""
 
 __all__ = [
+    "WaterPreset",
+    "water",
+    "SmokePreset",
+    "smoke",
+    "MetaballsPreset",
+    "metaballs",
+    "ClothPreset",
+    "cloth",
+    "TerrainPreset",
+    "terrain",
     "EffectInfo",
     "EffectName",
     "names",

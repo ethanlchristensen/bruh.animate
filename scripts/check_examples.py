@@ -49,7 +49,7 @@ def python_examples(path: Path):
 
 
 def main() -> None:
-    from bruhanimate import Player, Screen
+    from bruhanimate import AudioEffect, BaseEffect, Player, Screen
 
     original_run = Player.run
 
@@ -70,6 +70,7 @@ def main() -> None:
     with (
         patch.object(Player, "run", run),
         patch.object(Screen, "open", classmethod(lambda cls: HeadlessScreen())),
+        patch.object(AudioEffect, "start", BaseEffect.start),
     ):
         pages = [
             root / "README.md",
@@ -83,7 +84,9 @@ def main() -> None:
             for number, block in enumerate(python_examples(page), 1):
                 with contextlib.redirect_stdout(io.StringIO()):
                     exec(
-                        compile(block, f"{page.relative_to(root)}:example-{number}", "exec"),
+                        compile(
+                            block, f"{page.relative_to(root)}:example-{number}", "exec"
+                        ),
                         {},
                     )
                 count += 1

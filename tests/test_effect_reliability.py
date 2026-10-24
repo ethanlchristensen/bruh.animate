@@ -201,8 +201,8 @@ def test_fireworks_can_spawn_and_explode_in_short_buffers(height):
 
 
 @pytest.mark.parametrize("size", [(1, 1), (1, 5), (5, 1)])
-def test_radial_audio_can_draw_when_one_dimension_is_a_single_cell(size):
-    effect = AudioEffect(Buffer(*size), " ", AudioSettings(mode="radial"))
+def test_objects_audio_can_draw_when_one_dimension_is_a_single_cell(size):
+    effect = AudioEffect(Buffer(*size), " ", AudioSettings(mode="objects"))
     effect._audio_chunk = np.ones_like(effect._audio_chunk)
     try:
         effect.update(1 / 30)

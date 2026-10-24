@@ -106,7 +106,9 @@ class SnowEffect(BaseEffect):
         self.buffer = raster
         self.ground_flakes = ground
         self.flakes = flakes
-        self.image_flakes = self.image_flakes[:width] + [None] * max(0, width - old_width)
+        self.image_flakes = self.image_flakes[:width] + [None] * max(
+            0, width - old_width
+        )
         if self.show_info:
             self.add_info()
         super().resize(size)

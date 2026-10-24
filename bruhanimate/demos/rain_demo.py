@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from bruhanimate import play
+from bruhanimate import ResizePolicy, play
 from bruhanimate.bruheffect import RainSettings
 
 TARGET_FPS = 30
 
 
-def run(*, frames=None, fps=TARGET_FPS):
+def run(*, frames=None, fps=TARGET_FPS, on_resize: ResizePolicy = "resize"):
     return play(
         "rain",
         frames=frames,
@@ -35,6 +35,7 @@ def run(*, frames=None, fps=TARGET_FPS):
             lightning=True,
             lightning_chance=0.03,
         ),
+        on_resize=on_resize,
     )
 
 

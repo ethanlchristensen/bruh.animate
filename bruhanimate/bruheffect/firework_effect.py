@@ -28,6 +28,7 @@ from ..bruhutil.bruhtypes import (
     valid_firework_color_types,
     valid_firework_types,
 )
+from ._resize import raster
 from .base_effect import BaseEffect
 from .settings import FireworkSettings, validated_settings
 
@@ -2114,3 +2115,18 @@ class FireworkEffect(BaseEffect):
         self.fireworks = [
             firework for firework in self.fireworks if firework.is_active()
         ]
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Update launch/particle bounds without aging or recreating fireworks.
+
+        Positions and trails retain their coordinates and clip to the raster.
+        Peaks clamp below the new height; future launches use the new bounds.
+        """
+        self.buffer = raster(self.buffer, size, self.background)
+        width, height = size
+        for firework in self.fireworks:
+            firework.width, firework.height = width, height
+            firework.peak = min(firework.peak, height - 1)
+            for particle in firework.particles:
+                particle.width, particle.height = width, height
+        super().resize(size)

@@ -189,9 +189,10 @@ instances to replay or change membership; do not share one animation instance
 between owners. Immutable model data can be shared.
 
 ``play`` opens and restores a Screen for you. ``Player`` borrows a Screen for
-embedding or tests. Resizing currently ends playback with ScreenResizedError
-after cleanup; automatic reflow, rewind, and image/video export are future work.
-Seeded headless frames and terminal recordings are available through :doc:`capture`.
+embedding or tests. Opt into live reflow with ``on_resize="resize"``; the default
+raises ScreenResizedError after cleanup. See :doc:`resize` for state policies.
+Seeded headless frames and terminal recordings are available through :doc:`capture`,
+and SVG/PNG/GIF/MP4 output through :doc:`exports`. Solver rewind is not provided.
 
 Next, use :doc:`player` for the detailed contracts, :doc:`grid` for viewport
 coordinates and styling, or :doc:`demos/index` for complete examples.

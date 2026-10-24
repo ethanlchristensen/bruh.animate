@@ -125,7 +125,8 @@ timestamps, or audio are recorded. No extra export dependency is needed.
 Cells must contain one printable character, optionally ANSI SGR styled. Wide or
 combining glyphs, cursor escapes, and other controls are rejected during recording.
 Ambiguous-width glyphs assume one terminal column, as in :doc:`grid`.
-Image/video export and automatic resize reconstruction remain future work.
+See :doc:`exports` for SVG/PNG snapshots and GIF/MP4 clips. Headless capture
+uses fixed dimensions and does not reconstruct interactive resize events.
 
 Recording does not install a playback application or add a Windows ``.cast``
 replay command. External playback requires a compatible asciinema player.

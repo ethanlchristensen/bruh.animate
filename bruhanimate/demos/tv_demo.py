@@ -1,122 +1,134 @@
-"""A retro TV showing plasma while snow falls behind its opaque cabinet.
+"""The original v0.2 computer artwork with plasma on its screen and snow behind.
 
-Run ``python -m bruhanimate.demos.tv_demo``; q quits. Snow updates at 15/s,
-plasma at 30/s, and Player presents at 60 FPS. A channel badge lasts two seconds.
-No terminal or other resources are opened until run() is called.
+Run python -m bruhanimate.demos.tv_demo; q quits. An 80x34 terminal shows the
+whole computer. Smaller viewports clip safely; resize recenters the artwork
+without restarting either simulation or the two-second channel badge.
+Lettering cycles through Glitch, Focus, Dissolve, and Wipe, holding for three seconds,
+animating back out in reverse, and hiding for one second between entrances.
 """
 
 from bruhanimate import (
     Buffer,
     CallbackEffect,
-    ImageEffect,
     Layer,
     PlasmaEffect,
     PlasmaSettings,
+    ResizePolicy,
     Scene,
     SnowEffect,
     SnowSettings,
+    TextStyle,
     TimedOverlay,
     play,
+    text_to_image,
 )
 
+from ._computer import (
+    COMPUTER as COMPUTER,
+)
+from ._computer import (
+    COMPUTER_WIDTH as COMPUTER_WIDTH,
+)
+from ._computer import (
+    SCREEN_SPANS as SCREEN_SPANS,
+)
+from ._computer import (
+    _monitor_mask,
+    _origin,
+    _paint,
+)
+from ._image_cycle import ImageCycle
 
-def _paint(buffer: Buffer, x: int, y: int, text: str, style: str) -> None:
-    """Style each cell separately so clipping cannot cut an ANSI sequence."""
-    for offset, char in enumerate(text):
-        buffer.put_char(x + offset, y, f"\x1b[{style}m{char}\x1b[0m")
+
+class _MonitorTitle(ImageCycle):
+    """Cycle entrances after the startup badge; Layer handles mask and styling."""
+
+    def __init__(self) -> None:
+        super().__init__(text_to_image("bruh", font="small"), x=8, y=3)
+        self._delay = 2.0
+        self._text_buffer = Buffer(len(self.rows) + 6, self.width + 16)
+
+    def update(self, dt: float) -> None:
+        waiting = min(self._delay, dt)
+        self._delay -= waiting
+        super().update(dt - waiting)
+
+    def draw(self, buffer: Buffer) -> None:
+        if self._delay > 0:
+            return
+        self._text_buffer.clear_buffer(val=None)
+        super().draw(self._text_buffer)
+        left, top = _origin(buffer)
+        for row, cells in enumerate(self._text_buffer.buffer):
+            for column, glyph in enumerate(cells):
+                if glyph is not None:
+                    buffer.put_char(left + 23 - 8 + column, top + 6 - 3 + row, glyph)
 
 
 def build_scene(buffer: Buffer) -> Scene:
-    """Build an owned scene using separate full-size effect buffers.
+    """Compose snow, computer art, plasma, a revealing title, badge, and captions.
 
-    The screen region clips destination cells; it does not resize the plasma
-    simulation. Layout is computed once, with smaller terminals clipping the TV.
-    The badge is a finite child: use on_complete="hold" to keep playing after it
-    expires, including when capturing this scene with virtual time.
+    Rows between each silhouette's first/last glyph paint opaque spaces, hiding
+    background snow inside the body. Plasma replaces only the monitor opening.
+    Artwork is kept at its original size and recentered from the draw viewport.
+    Simulations retain independent full-viewport rasters and resize adapters.
+    Use on_complete="hold" to continue after the finite badge expires.
     """
-    width, height = buffer.width(), buffer.height()
-    cabinet_width = min(64, max(24, width - 12))
-    cabinet_height = min(20, max(10, height - 8))
-    left = (width - cabinet_width) // 2
-    top = (height - cabinet_height) // 2
-    screen = (left + 3, top + 2, cabinet_width - 13, cabinet_height - 4)
-    sx, sy, sw, sh = screen
-    wood = "38;5;223;48;5;94"
-    bezel = "38;5;250;48;5;235"
 
-    def cabinet(target: Buffer) -> None:
-        # Plain/colored spaces paint: snow must not show through the cabinet.
-        for row in range(cabinet_height):
-            _paint(target, left, top + row, " " * cabinet_width, wood)
-        _paint(target, left, top, "+" + "-" * (cabinet_width - 2) + "+", wood)
-        _paint(
-            target,
-            left,
-            top + cabinet_height - 1,
-            "+" + "-" * (cabinet_width - 2) + "+",
-            wood,
-        )
-        for row in range(1, cabinet_height - 1):
-            _paint(target, left, top + row, "|", wood)
-            _paint(target, left + cabinet_width - 1, top + row, "|", wood)
-        _paint(target, sx - 1, sy - 1, "+" + "-" * sw + "+", bezel)
-        _paint(target, sx - 1, sy + sh, "+" + "-" * sw + "+", bezel)
-        for row in range(sh):
-            _paint(target, sx - 1, sy + row, "|" + " " * sw + "|", bezel)
-        controls = sx + sw + 3
-        _paint(target, controls, top + 2, "( O )", wood)
-        _paint(target, controls, top + 4, "( o )", wood)
-        for row in range(top + 6, top + cabinet_height - 2):
-            _paint(target, controls, row, "=====", wood)
-        _paint(target, controls, top + cabinet_height - 2, "* ON", wood)
-        center = left + cabinet_width // 2
-        _paint(target, center - 3, top - 2, "\\   /", "37")
-        _paint(target, center - 2, top - 1, "\\_/", "37")
-        _paint(target, left + 4, top + cabinet_height, "//", "38;5;180")
-        _paint(
-            target,
-            left + cabinet_width - 6,
-            top + cabinet_height,
-            "\\\\",
-            "38;5;180",
-        )
+    def computer(target: Buffer) -> None:
+        left, top = _origin(target)
+        for row, text in enumerate(COMPUTER):
+            start = len(text) - len(text.lstrip())
+            _paint(target, left + start, top + row, text[start:], "38;5;250;49")
+
+    def badge(target: Buffer) -> None:
+        left, top = _origin(target)
+        _paint(target, left + 24, top + 7, " CH 01 / PLASMA ", "38;5;231;48;5;24")
+
+    title = _MonitorTitle()
 
     def captions(target: Buffer) -> None:
-        target.put_at(0, 0, " BRUH TV | Plasma on air ".center(width))
-        if height > 1:
+        target.put_at(0, 0, " BRUH COMPUTER | Plasma on air ".center(target.width()))
+        if target.height() > 1:
             target.put_at(
-                0, height - 1, " Snow 15/s | Plasma 30/s | q quit ".center(width)
+                0,
+                target.height() - 1,
+                f" Snow 15/s | Plasma 30/s | {title.phase_name} | q quit ".center(
+                    target.width()
+                ),
             )
 
-    # Separate instances own separate rasters; no mutable buffer is shared.
+    width, height = buffer.width(), buffer.height()
     snow = SnowEffect(Buffer(height, width), " ", SnowSettings(intensity=0.04, seed=42))
     plasma = PlasmaEffect(
-        Buffer(height, width),
-        " ",
-        PlasmaSettings(color=True, characters=False, seed=7),
+        Buffer(height, width), " ", PlasmaSettings(color=True, characters=False, seed=7)
     )
     return Scene(
         Layer(snow, updates_per_second=15),
-        CallbackEffect(cabinet),
-        Layer(plasma, region=screen, updates_per_second=30),
+        CallbackEffect(computer),
+        Layer(plasma, updates_per_second=30, mask=_monitor_mask),
         Layer(
-            TimedOverlay(
-                ImageEffect(" CH 01 / PLASMA ", x=sx + 1, y=sy + 1), duration=2
-            ),
-            region=screen,
+            title,
+            mask=_monitor_mask,
+            style=TextStyle(foreground=231, bold=True),
+            preserve_background=True,
         ),
+        TimedOverlay(CallbackEffect(badge), duration=2),
         CallbackEffect(captions),
     )
 
 
-def run(*, frames: int | None = None, fps: float = 60) -> int:
-    """Play until q or the frame limit; the channel badge does not stop the TV."""
+def run(
+    *, frames: int | None = None, fps: float = 60, on_resize: ResizePolicy = "resize"
+) -> int:
+    """Play until q or the frame limit; the badge does not stop the animation."""
     return play(
         effect_factory=build_scene,
         frames=frames,
         fps=fps,
         updates_per_second=60,
         on_complete="hold",
+        on_resize=on_resize,
     )
 
 

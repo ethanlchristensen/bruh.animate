@@ -55,8 +55,10 @@ The entire `bruhanimate.bruhrenderer` package and its root exports are removed.
 | `render_to_back_buffer`, `swap_buffers`, `present_frame` | Player handles drawing, diffing, batching, and rotation |
 | End-message prompt | Add explicit application UI after playback if needed |
 
-The old FocusRenderer character-assembly algorithm is removed; it has no built-in
-replacement yet. Implement assembly as an Animation if required. Panning uses
+The old FocusRenderer hierarchy is removed. The current `FocusImageEffect` offers
+seeded character assembly through the standard Animation contract, without legacy
+frame-based controls. `GlitchImageEffect` and `DissolveImageEffect` offer other
+entrances/exits; see the [image guide](source/images.rst). Panning uses
 elapsed-time velocity and clips rather than reproducing old looping semantics.
 Image collision is no longer inferred by a renderer: configure effect collision
 inputs explicitly. There is no automatic collision coupling between Scene layers.
@@ -215,3 +217,16 @@ See [capture and recording](source/capture.rst) for timing and format contracts.
   solver controls without external players, puzzle inputs, or new dependencies.
 
 See [composition](source/composition.rst) for complete ownership and timing rules.
+
+### Rendering corrections after 1.2.0
+
+- Matrix character changes now repaint independently of color changes. Setting
+  `color_randomness=0` freezes colors, not characters. Seeded RNG consumption and
+  clock behavior are unchanged, but corrected visible frames may differ.
+- Unix output replaces characters unsupported by the output encoding with `?`
+  in both buffered and unbuffered rendering, preserving supported text and ANSI
+  styling. This does not add support for wide or combining glyphs.
+- Composition skips transparent rows while preserving layer isolation, clipping,
+  and paint order. Plasma caches static waves and uses NumPy for moving waves,
+  retaining scalar evaluation near palette boundaries and invalidating cached
+  geometry after size or frequency changes. Public call signatures are unchanged.

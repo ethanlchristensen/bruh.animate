@@ -20,6 +20,7 @@ import numpy as np
 from bruhcolor import bruhcolored as bc
 
 from ..bruhutil import Buffer
+from ._resize import raster
 from .base_effect import BaseEffect
 from .settings import PerlinSettings, validated_settings
 
@@ -75,10 +76,12 @@ class PerlinEffect(BaseEffect):
 
     def update(self, dt: float) -> None:
         """Advance one simulation tick; dt is measured in seconds."""
-        self.buffer.clear_buffer(val=self.background)
-
         self._t += self.speed
 
+        self._paint()
+
+    def _paint(self) -> None:
+        self.buffer.clear_buffer(val=self.background)
         noise = np.zeros((self._h, self._w), dtype=np.float32)
         amp, total = 1.0, 0.0
         for i in range(self.octaves):
@@ -102,3 +105,13 @@ class PerlinEffect(BaseEffect):
             color = _heat(float(mags[i])) if self.color else None
             ch = bc(self.char, color=color) if color is not None else self.char
             self.buffer.put_char(int(lit_c[i]), int(lit_r[i]), ch)
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Rebuild sampling coordinates, retaining phase and seeded offsets."""
+        self.buffer = raster(self.buffer, size, self.background)
+        self._w, self._h = size
+        x, y = np.meshgrid(np.arange(self._w), np.arange(self._h))
+        self._xs = (x / self._w * 4 * math.pi).astype(np.float32)
+        self._ys = (y / self._h * 4 * math.pi).astype(np.float32)
+        self._paint()
+        super().resize(size)

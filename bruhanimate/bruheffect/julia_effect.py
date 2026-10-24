@@ -17,6 +17,7 @@ limitations under the License.
 import numpy as np
 
 from ..bruhutil.bruhffer import Buffer
+from ._resize import raster
 from .base_effect import BaseEffect
 
 
@@ -92,3 +93,8 @@ class JuliaEffect(BaseEffect):
                     self.ascii_chars[int(buffer[y][x] * (len(self.ascii_chars) - 1))],
                 )
         self.update_tick()
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Retain visible cells and expand the simulation raster without ticking."""
+        self.buffer = raster(self.buffer, size, self.background)
+        super().resize(size)

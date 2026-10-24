@@ -192,3 +192,6 @@ API
 
 .. automodule:: bruhanimate.widgets
    :members:
+
+.. automodule:: bruhanimate.styling
+   :members:
