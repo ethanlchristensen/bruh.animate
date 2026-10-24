@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from bruhanimate import play
+from bruhanimate import ResizePolicy, play
 from bruhanimate.bruheffect import SandSettings
 
 TARGET_FPS = 30
 
 
-def run(*, frames=None, fps=TARGET_FPS):
+def run(*, frames=None, fps=TARGET_FPS, on_resize: ResizePolicy = "resize"):
     return play(
         "sand",
         frames=frames,
@@ -28,6 +28,7 @@ def run(*, frames=None, fps=TARGET_FPS):
         updates_per_second=30,
         background=" ",
         settings=SandSettings(color=True, spawn_rate=0.25),
+        on_resize=on_resize,
     )
 
 

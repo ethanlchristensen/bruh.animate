@@ -16,10 +16,19 @@ limitations under the License.
 
 """A pipe-based console over snow. Escape quits; q remains shell input."""
 
-from bruhanimate import Buffer, Layer, Player, Scene, Screen, SnowEffect, TerminalEffect
+from bruhanimate import (
+    Buffer,
+    Layer,
+    Player,
+    ResizePolicy,
+    Scene,
+    Screen,
+    SnowEffect,
+    TerminalEffect,
+)
 
 
-def run(*, frames=None, fps=30):
+def run(*, frames=None, fps=30, on_resize: ResizePolicy = "resize"):
     def show(screen):
         terminal = TerminalEffect(Buffer(screen.height, screen.width))
         scene = Scene(
@@ -33,6 +42,7 @@ def run(*, frames=None, fps=30):
             fps=fps,
             updates_per_second=30,
             event_handler=terminal.handle_event,
+            on_resize=on_resize,
         ).run()
 
     return Screen.show(show)

@@ -162,7 +162,7 @@ def test_stale_lock_check_failure_stops_release_checks_without_changing_source(
     with pytest.raises(subprocess.CalledProcessError):
         publish.main(["--check"], root=project)
     command.assert_called_once_with(
-        ["uv", "sync", "--locked", "--group", "docs"], root=project
+        ["uv", "sync", "--locked", "--group", "docs", "--extra", "export"], root=project
     )
     assert release_check.source_version(project) == "1.0.0"
 
@@ -192,7 +192,12 @@ def test_explicit_pr_flow_checks_first_and_preserves_multiline_body(
     assert calls[0] == ["uv", "lock"]
     assert calls[1] == "validated"
     assert calls[2] == [
-        "git", "add", "--", "pyproject.toml", "bruhanimate/__init__.py", "uv.lock"
+        "git",
+        "add",
+        "--",
+        "pyproject.toml",
+        "bruhanimate/__init__.py",
+        "uv.lock",
     ]
     assert calls[3][:2] == ["git", "commit"]
     assert calls[4][:2] == ["git", "push"]

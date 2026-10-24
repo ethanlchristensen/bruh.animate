@@ -19,6 +19,7 @@ import random
 from bruhcolor import bruhcolored
 
 from ..bruhutil import TWINKLE_COLORS, Buffer
+from ._resize import raster
 from .base_effect import BaseEffect
 from .settings import TwinkleSettings, validated_settings
 
@@ -132,6 +133,7 @@ class TwinkleEffect(BaseEffect):
 
     def _set_specs(self):
         self.specs = []
+        self._pending = set()
         self.buffer.clear_buffer()
         for y in range(self.buffer.height()):
             for x in range(self.buffer.width()):
@@ -146,7 +148,36 @@ class TwinkleEffect(BaseEffect):
 
     def update(self, dt: float) -> None:
         """Advance one simulation tick; dt is measured in seconds."""
+        for x, y in sorted(self._pending, key=lambda cell: (cell[1], cell[0])):
+            if self.rng.random() < self.density:
+                self.buffer.put_char(
+                    x,
+                    y,
+                    TWINKLE_SPEC(
+                        self.rng.choice(self.twinkle_chars),
+                        self.rng.randint(0, 23),
+                        rng=self.rng,
+                    ),
+                )
+                self.specs.append((x, y))
+        self._pending.clear()
         for x, y in self.specs:
             spec = self.buffer.get_char(x, y)
             self.buffer.put_char(x, y, spec.next().copy())
             del spec
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Retain twinkle phases; seed newly exposed cells on the next update."""
+        old_width, old_height = self.buffer.width(), self.buffer.height()
+        resized = raster(self.buffer, size, self.background)
+        width, height = size
+        self.specs = [(x, y) for x, y in self.specs if x < width and y < height]
+        self._pending = {(x, y) for x, y in self._pending if x < width and y < height}
+        self._pending.update(
+            (x, y)
+            for y in range(height)
+            for x in range(width)
+            if x >= old_width or y >= old_height
+        )
+        self.buffer = resized
+        super().resize(size)

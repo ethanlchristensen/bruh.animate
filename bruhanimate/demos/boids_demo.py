@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from bruhanimate import play
+from bruhanimate import ResizePolicy, play
 from bruhanimate.bruheffect import BoidsSettings
 
 TARGET_FPS = 30
 
 
-def run(*, frames=None, fps=TARGET_FPS):
+def run(*, frames=None, fps=TARGET_FPS, on_resize: ResizePolicy = "resize"):
     return play(
         "boids",
         frames=frames,
@@ -30,6 +30,7 @@ def run(*, frames=None, fps=TARGET_FPS):
         settings=BoidsSettings(
             num_boids=80, color=True, max_speed=1.5, perception=12.0
         ),
+        on_resize=on_resize,
     )
 
 

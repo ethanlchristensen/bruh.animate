@@ -283,7 +283,9 @@ def test_zero_duration_does_not_construct_or_start_content():
 def test_duration_caps_sleep_at_deadline_and_closes_owned_effect():
     clock, screen = Clock(), RecordingScreen()
     effect = TrackingEffect(Buffer(3, 5))
-    count = Player(screen, effect, duration=0.25, fps=10, clock=clock, sleep=clock.sleep).run()
+    count = Player(
+        screen, effect, duration=0.25, fps=10, clock=clock, sleep=clock.sleep
+    ).run()
     assert count == 3
     assert clock.now == pytest.approx(0.25)
     assert effect.calls == ["start", 0, 1, 2, "close"]
@@ -294,10 +296,18 @@ def test_duration_begins_after_startup_and_obeys_earlier_frame_limit():
     clock = Clock()
     effect = TrackingEffect(Buffer(3, 5))
     effect.start = lambda: clock.sleep(5)
-    assert Player(
-        RecordingScreen(), effect, duration=10, frames=2, fps=10,
-        clock=clock, sleep=clock.sleep,
-    ).run() == 2
+    assert (
+        Player(
+            RecordingScreen(),
+            effect,
+            duration=10,
+            frames=2,
+            fps=10,
+            clock=clock,
+            sleep=clock.sleep,
+        ).run()
+        == 2
+    )
     assert clock.now == pytest.approx(5.1)
     assert effect.calls == [0, 1, "close"]
 
@@ -305,10 +315,17 @@ def test_duration_begins_after_startup_and_obeys_earlier_frame_limit():
 def test_uncapped_duration_stops_after_slow_callback_without_extra_update():
     clock = Clock()
     effect = CallbackEffect(lambda buffer: None, update=lambda dt: clock.sleep(0.2))
-    assert Player(
-        RecordingScreen(), effect, duration=0.3, fps=None,
-        clock=clock, sleep=clock.sleep,
-    ).run() == 2
+    assert (
+        Player(
+            RecordingScreen(),
+            effect,
+            duration=0.3,
+            fps=None,
+            clock=clock,
+            sleep=clock.sleep,
+        ).run()
+        == 2
+    )
     assert clock.now == pytest.approx(0.4)
 
 
@@ -320,11 +337,19 @@ def test_duration_bounds_fixed_tick_catchup():
         calls.append(dt)
         clock.sleep(0.2)
 
-    assert Player(
-        RecordingScreen(), CallbackEffect(lambda buffer: None, update=update),
-        duration=0.3, fps=10, updates_per_second=100, max_catch_up=5,
-        clock=clock, sleep=clock.sleep,
-    ).run() == 2
+    assert (
+        Player(
+            RecordingScreen(),
+            CallbackEffect(lambda buffer: None, update=update),
+            duration=0.3,
+            fps=10,
+            updates_per_second=100,
+            max_catch_up=5,
+            clock=clock,
+            sleep=clock.sleep,
+        ).run()
+        == 2
+    )
     assert len(calls) == 2
 
 
@@ -334,10 +359,17 @@ def test_duration_limits_completed_hold_and_paused_playback(paused):
 
     clock = Clock()
     animation = Playback([], lambda state, buffer: None, paused=paused)
-    assert Player(
-        RecordingScreen(), animation, duration=0.25, fps=10,
-        clock=clock, sleep=clock.sleep,
-    ).run() == 3
+    assert (
+        Player(
+            RecordingScreen(),
+            animation,
+            duration=0.25,
+            fps=10,
+            clock=clock,
+            sleep=clock.sleep,
+        ).run()
+        == 3
+    )
     assert clock.now == pytest.approx(0.25)
     assert animation.finished is (not paused)
 

@@ -17,6 +17,7 @@ limitations under the License.
 from bruhcolor import bruhcolored
 
 from ..bruhutil import Buffer
+from ._resize import raster
 from .base_effect import BaseEffect
 from .settings import NoiseSettings, validated_settings
 
@@ -101,3 +102,8 @@ class NoiseEffect(BaseEffect):
                         self.buffer.put_char(
                             x, y, self.noise[self.rng.randint(0, self.noise_length - 1)]
                         )
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Retain visible cells and expand the simulation raster without ticking."""
+        self.buffer = raster(self.buffer, size, self.background)
+        super().resize(size)

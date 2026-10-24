@@ -16,7 +16,7 @@ limitations under the License.
 
 """Build content from buffer dimensions; Player handles playback."""
 
-from bruhanimate import DrawLinesEffect, DrawLinesSettings, play
+from bruhanimate import DrawLinesEffect, DrawLinesSettings, ResizePolicy, play
 
 
 def build(buffer):
@@ -31,8 +31,14 @@ def build(buffer):
     return effect
 
 
-def run(*, frames=None, fps=30):
-    return play(effect_factory=build, frames=frames, fps=fps, updates_per_second=30)
+def run(*, frames=None, fps=30, on_resize: ResizePolicy = "resize"):
+    return play(
+        effect_factory=build,
+        frames=frames,
+        fps=fps,
+        updates_per_second=30,
+        on_resize=on_resize,
+    )
 
 
 if __name__ == "__main__":

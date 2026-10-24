@@ -1,6 +1,6 @@
 """A native effect with ten simulation ticks and sixty presentations per second."""
 
-from bruhanimate import BaseEffect, ImageEffect, Scene, play
+from bruhanimate import BaseEffect, ImageEffect, ResizePolicy, Scene, play
 
 
 class StepEffect(BaseEffect):
@@ -19,8 +19,14 @@ def build(buffer):
     return Scene(StepEffect(buffer), ImageEffect("10 updates / 60 draws", x=0, y=1))
 
 
-def run(*, frames=None, fps=60):
-    return play(effect_factory=build, fps=fps, updates_per_second=10, frames=frames)
+def run(*, frames=None, fps=60, on_resize: ResizePolicy = "resize"):
+    return play(
+        effect_factory=build,
+        fps=fps,
+        updates_per_second=10,
+        frames=frames,
+        on_resize=on_resize,
+    )
 
 
 if __name__ == "__main__":

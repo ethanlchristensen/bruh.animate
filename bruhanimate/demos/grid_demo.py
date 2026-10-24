@@ -12,6 +12,7 @@ from bruhcolor import bruhcolored
 from bruhanimate import (
     CallbackEffect,
     Playback,
+    ResizePolicy,
     Scene,
     draw_grid,
     effect_registry,
@@ -123,7 +124,7 @@ def draw_state(state, buffer):
     grid.put(*state.current, CURSOR)
 
 
-def run(*, frames=None, fps=60):
+def run(*, frames=None, fps=60, on_resize: ResizePolicy = "resize"):
     playback = Playback(solve(), draw_state, steps_per_second=10)
 
     def status(buffer):
@@ -155,6 +156,7 @@ def run(*, frames=None, fps=60):
         fps=fps,
         updates_per_second=30,
         event_handler=playback.handle_event,
+        on_resize=on_resize,
     )
 
 

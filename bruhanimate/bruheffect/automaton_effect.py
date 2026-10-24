@@ -18,6 +18,7 @@ import numpy as np
 from bruhcolor import bruhcolored as bc
 
 from ..bruhutil import Buffer
+from ._resize import raster
 from .base_effect import BaseEffect
 from .settings import AutomatonSettings, validated_settings
 
@@ -39,7 +40,7 @@ class AutomatonEffect(BaseEffect):
     Wolfram 1-D elementary cellular automaton.
 
     Each generation is computed from the previous row using a 3-cell
-    neighbourhood lookup table determined by the rule number (0–255).
+    neighbourhood lookup table determined by the rule number (0â€“255).
     New generations scroll downward from the top, producing a 2-D
     space-time diagram. Rule 30 (default) is chaotic; Rule 90 produces
     Sierpinski triangles; Rule 110 is Turing-complete.
@@ -67,7 +68,7 @@ class AutomatonEffect(BaseEffect):
         return np.array([(int(rule_num) >> i) & 1 for i in range(8)], dtype=np.uint8)
 
     def set_rule(self, rule_num: int):
-        """Switch to a new rule number (0–255) and reset the initial seed."""
+        """Switch to a new rule number (0â€“255) and reset the initial seed."""
         self._rule_table = self._make_table(rule_num)
         self._row[:] = 0
         self._row[self._w // 2] = 1
@@ -94,3 +95,14 @@ class AutomatonEffect(BaseEffect):
                 self.buffer.buffer[0][col] = ch
 
         self._row = next_row
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Keep top-left history and the active generation; new columns are dead."""
+        resized = raster(self.buffer, size, self.background)
+        width, height = size
+        row = np.zeros(width, dtype=self._row.dtype)
+        count = min(width, self._w)
+        row[:count] = self._row[:count]
+        self._row, self._w, self._h = row, width, height
+        self.buffer = resized
+        super().resize(size)

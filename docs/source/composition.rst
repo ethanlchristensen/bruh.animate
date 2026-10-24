@@ -4,6 +4,9 @@ Panels, layer clocks, and temporary overlays
 Scene composes animations in paint order. Each Layer can clip its output to a
 rectangle and choose an independent simulation rate. TimedOverlay makes a child
 visible for a limited time, then releases it and reveals the current lower layers.
+Layer also accepts a pure ``mask``, ``style=TextStyle(...)``, and
+``preserve_background=True`` for generic cell composition. See :doc:`images`
+for masks, styling, and Focus/Dissolve/Glitch transitions.
 These features use the existing Player and work with native terminal playback;
 no additional application or dependency is required.
 
@@ -27,6 +30,81 @@ no additional application or dependency is required.
 Type ``Layer(`` in an editor to discover ``region``, ``updates_per_second``, and
 ``max_catch_up``. ``TimedOverlay`` exposes typed ``duration`` and ``delay`` fields
 in its constructor. Configure layers and overlays before starting playback.
+
+Revealing text and ASCII images
+-------------------------------
+
+``ImageEffect`` accepts a typed ``characters_per_second`` option. A positive,
+finite rate reveals one non-space glyph at a time, left to right and top to
+bottom. Blank and unrevealed cells stay transparent. The default ``None`` keeps
+the existing immediate image behavior, including painting spaces.
+
+.. code-block:: python
+
+   from bruhanimate import ImageEffect, Scene, effect_registry, play, text_to_image
+
+   def build(buffer):
+       return Scene(
+           effect_registry.create("plasma", buffer, " ", seed=7),
+           ImageEffect(text_to_image("bruh", font="small"),
+                       characters_per_second=18),
+       )
+
+   play(effect_factory=build, duration=5, on_complete="hold", on_resize="resize")
+
+Only ``update(dt)`` advances the reveal; ``dt`` is simulation seconds. Drawing,
+resizing, and repeated startup preserve progress. Offscreen glyphs still consume
+their reveal time. ``finished`` becomes True after the last glyph, which remains
+visible; it is None when revealing is disabled. Empty/all-space reveals finish
+immediately. Use ``on_complete="hold"`` to continue an animated background after
+the image finishes. Scene owns the image's lifecycle; it consumes no input.
+Supply plain single-cell text without ANSI escapes. The :doc:`demos/tv_demo`
+uses the flying/glitching entrance below with per-cell plasma background colors.
+
+Flying, glitching characters
+--------------------------------
+
+``GlitchImageEffect`` moves individual characters into place. Non-space glyphs
+launch from one column before the image's left edge, in column order (top to
+bottom within each column). Each flickers at 20 Hz and jitters by up to one row
+until its flight ends, then becomes its final glyph. Settled glyphs paint above
+flying ones; blank cells stay transparent.
+
+.. code-block:: python
+
+   from bruhanimate import GlitchImageEffect, Scene, effect_registry, play, text_to_image
+
+   def build(buffer):
+       return Scene(
+           effect_registry.create("plasma", buffer, " ", seed=7),
+           GlitchImageEffect(text_to_image("bruh", font="small"),
+                             characters_per_second=18, travel_time=0.65, seed=42),
+       )
+
+   play(effect_factory=build, duration=7, on_complete="hold", on_resize="resize")
+
+Type ``GlitchImageEffect(`` to discover launch rate, ``travel_time`` in simulation
+seconds, ``seed``, and final ``x``/``y`` coordinates (None centers each axis).
+Rate and travel time must be positive and finite. ``finished`` becomes True only
+after the last arrival; the final image stays visible. An empty image finishes
+immediately. Update advances time; draw is read-only. Seeded glitches depend on
+simulation time, not draw frequency. Resize recenters without restarting flight.
+Scene owns the animation, which consumes no input and owns no external resources.
+Use a Layer region or Panel to clip flying glyphs that extend beyond the image.
+This is a composable animation, not a restored legacy renderer.
+
+To repeat the entrance, set ``repeat=True, hold_duration=3, repeat_delay=1``.
+Each cycle flies in, holds the fully settled image for three simulation seconds,
+then paints nothing for one second before starting again. These two durations
+are finite, non-negative seconds; zero skips that phase. Seeded cycles replay
+the same glitches. The clock handles updates crossing multiple cycles and
+preserves its phase during resize. Non-empty repeating images report
+``finished=False`` throughout; empty images still finish immediately. Sibling
+effects keep running and revealed backgrounds are freshly composed each frame.
+With the default ``repeat=False``, the final image stays visible indefinitely,
+regardless of the hold and delay settings.
+With ``reverse=True``, the hold is followed by the same effect backwards, before
+the gap or completion. See :doc:`images` for round-trip endpoints and timing.
 
 Clipped regions
 ---------------
@@ -125,8 +203,8 @@ snow panel. Space pauses, n/right steps, +/- changes solver speed, and q quits.
 The demo uses ASCII geometry with ANSI colors; smaller windows clip the board.
 The final board stays visible until quit or the frame limit. This complements the
 existing BFS grid demo and keeps all puzzle rules in application/demo code.
-General masks, reusable path pulses/ripples, and resize reconstruction remain
-future work.
+Layer masks and styling are described in :doc:`images`. Use :doc:`motion` for
+reusable path/pulse/ripple accents and :doc:`resize` for live viewport changes.
 
 TV composition example
 ----------------------

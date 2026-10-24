@@ -82,3 +82,5 @@ API
 
 .. automodule:: bruhanimate.scene
    :members:
+
+See :doc:`images` for image transitions and masks.

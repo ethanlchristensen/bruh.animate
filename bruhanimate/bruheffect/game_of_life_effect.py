@@ -17,6 +17,7 @@ limitations under the License.
 from bruhcolor import bruhcolored
 
 from ..bruhutil import LIFE_COLORS, LIFE_SCALES, Buffer
+from ._resize import raster
 from .base_effect import BaseEffect
 from .settings import GameOfLifeSettings, validated_settings
 
@@ -224,3 +225,18 @@ class GameOfLifeEffect(BaseEffect):
                                 ),
                                 pos,
                             )
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Preserve cell ages at top-left; added cells start dead, without reseeding."""
+        resized = raster(self.buffer, size, self.background)
+        width, height = size
+        dead = (
+            bruhcolored(self.grey_scale[self.DEAD], color=self.colors[self.DEAD]),
+            self.DEAD,
+        )
+        board = [[dead for _ in range(width)] for _ in range(height)]
+        for y in range(min(height, len(self.board))):
+            count = min(width, len(self.board[y]))
+            board[y][:count] = self.board[y][:count]
+        self.board, self.buffer = board, resized
+        super().resize(size)

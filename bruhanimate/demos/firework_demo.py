@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from bruhanimate import play
+from bruhanimate import ResizePolicy, play
 from bruhanimate.bruheffect import FireworkSettings
 
 TARGET_FPS = 30
 
 
-def run(*, frames=None, fps=TARGET_FPS):
+def run(*, frames=None, fps=TARGET_FPS, on_resize: ResizePolicy = "resize"):
     return play(
         "firework",
         frames=frames,
@@ -30,6 +30,7 @@ def run(*, frames=None, fps=TARGET_FPS):
         settings=FireworkSettings(
             firework_type="random", color_enabled=True, color_type="rainbow", rate=0.05
         ),
+        on_resize=on_resize,
     )
 
 

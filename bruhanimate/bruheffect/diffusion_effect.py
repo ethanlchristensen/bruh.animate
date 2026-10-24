@@ -18,6 +18,8 @@ import numpy as np
 from bruhcolor import bruhcolored as bc
 
 from ..bruhutil import Buffer
+from ._fields import paint
+from ._resize import raster
 from .base_effect import BaseEffect
 from .settings import DiffusionSettings, validated_settings
 
@@ -55,6 +57,7 @@ class DiffusionEffect(BaseEffect):
         super().__init__(buffer, background, seed=s.seed)
 
         self.color = s.color
+        self.shading = s.shading
         self.char = s.char
         self.f = s.f
         self.k = s.k
@@ -68,8 +71,19 @@ class DiffusionEffect(BaseEffect):
 
         cy, cx = h // 2, w // 2
         r = max(2, min(h, w) // 6)
-        self._U[cy - r : cy + r, cx - r : cx + r] = 0.50
-        self._V[cy - r : cy + r, cx - r : cx + r] = 0.25
+        centers = [(cy, cx)]
+        if s.seed_pattern == "scattered":
+            centers += [
+                (self.rng.randrange(h), self.rng.randrange(w))
+                for _ in range(max(1, h * w // 180))
+            ]
+            r = max(3, min(h, w) // 12)
+        for cy, cx in centers:
+            region = np.s_[
+                max(0, cy - r) : min(h, cy + r), max(0, cx - r) : min(w, cx + r)
+            ]
+            self._U[region] = 0.50
+            self._V[region] = 0.25
 
         rng = self.np_rng
         self._U = np.clip(
@@ -79,12 +93,12 @@ class DiffusionEffect(BaseEffect):
             self._V + rng.uniform(-0.02, 0.02, (h, w)).astype(np.float32), 0.0, 1.0
         )
 
-    def set_parameters(self, f: float = None, k: float = None):
-        """Update the feed (f) and/or kill (k) rate at runtime."""
-        if f is not None:
-            self.f = float(f)
-        if k is not None:
-            self.k = float(k)
+    def set_parameters(self, f: float | None = None, k: float | None = None) -> None:
+        """Atomically update finite feed/kill rates in [0, 1]; None retains a rate."""
+        settings = DiffusionSettings(
+            f=self.f if f is None else f, k=self.k if k is None else k
+        )
+        self.f, self.k = settings.f, settings.k
 
     def update(self, dt: float) -> None:
         """Advance one simulation tick; dt is measured in seconds."""
@@ -111,9 +125,32 @@ class DiffusionEffect(BaseEffect):
         np.clip(self._U, 0.0, 1.0, out=self._U)
         np.clip(self._V, 0.0, 1.0, out=self._V)
 
+        if self.shading:
+            paint(
+                self.buffer,
+                np.asarray(self._V, dtype=np.float64) * 2.8,
+                (17, 24, 30, 36, 42, 118, 226),
+                color=self.color,
+                background=self.background,
+            )
+            return
         lit_r, lit_c = np.where(self._V > 0.08)
         mags = self._V[lit_r, lit_c]
         for i in range(len(lit_r)):
             color = _heat(float(mags[i])) if self.color else None
             ch = bc(self.char, color=color) if color is not None else self.char
             self.buffer.put_char(int(lit_c[i]), int(lit_r[i]), ch)
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Retain concentrations at top-left; expand with U=1, V=0, without noise."""
+        resized = raster(self.buffer, size, self.background)
+        width, height = size
+        rows, cols = min(height, self._h), min(width, self._w)
+        u, v = (
+            np.ones((height, width), dtype=np.float32),
+            np.zeros((height, width), dtype=np.float32),
+        )
+        u[:rows, :cols], v[:rows, :cols] = self._U[:rows, :cols], self._V[:rows, :cols]
+        self._U, self._V, self._w, self._h = u, v, width, height
+        self.buffer = resized
+        super().resize(size)

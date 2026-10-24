@@ -3,6 +3,11 @@
 **Develop on `dev`, merge into `main`, wait for green checks, then push a version
 tag when you are ready to publish.** Merging alone does not upload a package.
 
+The local ``publish.py --check`` gate installs the optional export extra to run
+real PNG/GIF/MP4 regressions. CI also runs those tests on all three supported
+platforms and native PTY resize checks on Linux/macOS. Hardware audio and visual
+terminal checks remain explicit; see [native checks](source/platform_checks.rst).
+
 This is the maintainer checklist for bruhanimate. All commands run from the
 repository root; examples use 1.0.0 unless another target is specified.
 

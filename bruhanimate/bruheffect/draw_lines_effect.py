@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 from ..bruhutil import Buffer
+from ._resize import raster
 from .base_effect import BaseEffect
 from .settings import DrawLinesSettings, validated_settings
 
@@ -177,3 +178,8 @@ class DrawLinesEffect(BaseEffect):
                     x_draw(line.start_point[0], line.start_point[1] + 1)
                 else:
                     y_draw(line.start_point[0] + 1, line.start_point[1])
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Retain visible cells and expand the simulation raster without ticking."""
+        self.buffer = raster(self.buffer, size, self.background)
+        super().resize(size)

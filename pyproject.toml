@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "bruhanimate"
-version = "1.2.0"
+version = "1.3.0"
 description = "Composable ASCII terminal animations and solver playback"
 authors = [{name = "Ethan Christensen", email = "ethanlchristensen@outlook.com"}]
 license = "Apache-2.0"
@@ -35,6 +35,10 @@ bruhanimate = "bruhanimate.cli:main"
 audio = [
     "PyAudioWPatch>=0.2.12; sys_platform == 'win32'",
     "sounddevice>=0.4; sys_platform != 'win32'",
+]
+export = [
+    "imageio-ffmpeg>=0.6,<0.7",
+    "pillow>=12.1.1,<14",
 ]
 
 [project.urls]
@@ -79,7 +83,7 @@ python_files = ["test_*.py"]
 addopts = "--cov=bruhanimate --cov-report=term-missing"
 
 [tool.mypy]
-files = ["bruhanimate/views.py", "bruhanimate/keyboard.py", "bruhanimate/resize.py", "bruhanimate/player.py", "tests/typing/discovery.py", "bruhanimate/capture.py", "bruhanimate/scene.py", "bruhanimate/panel.py", "bruhanimate/layout.py", "bruhanimate/widgets.py", "bruhanimate/demos/dashboard_demo.py", "bruhanimate/demos/beam_demo.py", "bruhanimate/demos/tv_demo.py", "bruhanimate/demos/windows_demo.py"]
+files = ["bruhanimate/bruheffect/water_effect.py", "bruhanimate/bruheffect/smoke_effect.py", "bruhanimate/bruheffect/metaballs_effect.py", "bruhanimate/bruheffect/cloth_effect.py", "bruhanimate/bruheffect/terrain_effect.py", "bruhanimate/bruheffect/_fields.py", "bruhanimate/demos/nature_demo.py", "bruhanimate/motion.py", "bruhanimate/export.py", "bruhanimate/demos/routing_demo.py", "bruhanimate/sequence.py", "bruhanimate/masks.py", "bruhanimate/styling.py", "bruhanimate/demos/_image_cycle.py", "bruhanimate/demos/image_demo.py", "bruhanimate/image.py", "bruhanimate/views.py", "bruhanimate/keyboard.py", "bruhanimate/resize.py", "bruhanimate/player.py", "tests/typing/discovery.py", "bruhanimate/capture.py", "bruhanimate/scene.py", "bruhanimate/panel.py", "bruhanimate/layout.py", "bruhanimate/widgets.py", "bruhanimate/demos/dashboard_demo.py", "bruhanimate/demos/beam_demo.py", "bruhanimate/demos/tv_demo.py", "bruhanimate/demos/windows_demo.py"]
 python_version = "3.13"
 follow_imports = "silent"
 ignore_missing_imports = true

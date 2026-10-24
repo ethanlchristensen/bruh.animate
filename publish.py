@@ -76,14 +76,14 @@ def command(args: list[str], *, root: Path = ROOT, capture: bool = False) -> str
 
 
 def validate(root: Path = ROOT) -> None:
-    """Sync the locked dev/docs environment, then check source and fresh archives.
+    """Sync locked dev/docs/export tools, then check source and fresh archives.
 
     A stale lockfile fails instead of silently changing dependency resolution.
     Builds use standard package metadata without local uv source overrides.
     """
     uv = uv_executable()
     source_version(root)
-    command([uv, "sync", "--locked", "--group", "docs"], root=root)
+    command([uv, "sync", "--locked", "--group", "docs", "--extra", "export"], root=root)
     for args in (
         ["ruff", "check", "."],
         ["pytest"],
@@ -95,7 +95,14 @@ def validate(root: Path = ROOT) -> None:
     build.mkdir(exist_ok=True)
     with TemporaryDirectory(prefix="release-", dir=build) as temporary:
         command(
-            [uv, "build", "--no-sources", "--no-create-gitignore", "--out-dir", temporary],
+            [
+                uv,
+                "build",
+                "--no-sources",
+                "--no-create-gitignore",
+                "--out-dir",
+                temporary,
+            ],
             root=root,
         )
         check_dist(Path(temporary), source_version(root))
@@ -210,7 +217,14 @@ def main(argv: list[str] | None = None, *, root: Path = ROOT) -> int:
     validate(root)
     if args.commit:
         command(
-            ["git", "add", "--", "pyproject.toml", "bruhanimate/__init__.py", "uv.lock"],
+            [
+                "git",
+                "add",
+                "--",
+                "pyproject.toml",
+                "bruhanimate/__init__.py",
+                "uv.lock",
+            ],
             root=root,
         )
         command(["git", "commit", "-m", f"chore: prepare v{version}"], root=root)

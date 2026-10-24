@@ -31,6 +31,8 @@ Player keeps the live animation and factory result, refreshes the Screen size,
 notifies content, and invalidates the previous frame so every cell is repainted.
 Frames and duration limits span the whole run; resizing does not restart them.
 Scene retains layer clocks, and TimedOverlay retains its visibility window.
+AnimationSequence keeps its active child/time and passes the latest viewport
+to future children when their factories run; see :doc:`sequencing`.
 Input continues through the existing event handler. Resize errors propagate
 after normal ownership cleanup; borrowed content is never closed by Player.
 
@@ -84,14 +86,51 @@ the implementation provided by the effect:
   discarded. New cells start blank; the next simulation update chooses characters
   for them and update intervals for new rows. Repeated resizes before that tick
   retain only the pending cells still visible. Resize itself consumes no randomness.
-* **Other BaseEffect simulations:** the default keeps the original private raster
-  and clips its bottom/right edges. Growth reveals that raster again; cells beyond
-  it reveal the player's or panel's background. These effects need individual
-  adaptation rules before their simulation dimensions can change.
+* **Sand:** retained grains and pixels follow the bottom; new cells are empty.
+* **Water:** displacement and previous displacement retain their top-left overlap,
+  preserving local wave velocity; added cells are still. The field repaints.
+* **Smoke/Ink:** density and obstacle cells retain their top-left overlap. Added
+  cells are empty; the source uses the new top/bottom edge on its next update.
+* **Metaballs, Cloth:** the current phase remaps to the new viewport. Blob orbits,
+  cloth art and random streams stay intact; the raster repaints immediately.
+* **Terrain:** the same seeded height field and camera travel position are
+  projected into the new dimensions without advancing or regenerating terrain.
+* **Game of Life, Automaton, Diffusion:** grids retain their top-left overlap,
+  including cell ages, the active automaton row, or chemical concentrations.
+  Added cells are dead/empty, or U=1/V=0 for diffusion. No random reseeding occurs.
+* **Boids:** positions wrap into new bounds; flock size and velocities survive.
+* **Voronoi:** sites clamp to new bounds without changing velocities; region
+  geometry is rebuilt and repainted immediately.
+* **Perlin:** sampling coordinates rebuild at the existing phase, keeping seeded
+  offsets; the complete field repaints immediately.
+* **Twinkle:** retained stars keep their brightness and direction. Added cells
+  initialize on the next update; repeated resizes keep only visible pending cells.
+* **Noise, Stars, Static, Offset, Julia, DrawLines:** the raster retains top-left
+  pixels, fills added cells with the background, and uses its new dimensions on
+  the next update. Julia's tick and line endpoints remain unchanged.
+* **Fireworks:** live particles keep positions, velocities and lifetimes, with
+  updated bounds. Launch peaks clamp below the new height; future launches use
+  the new area. Existing trails clip in place.
+* **Audio:** capture stays running. New raster cells start with the background;
+  the next audio update repaints the selected mode. Waveform history retains its
+  newest samples on the right. Automatic bar counts follow width, interpolating
+  existing smoothed values; explicit bar counts remain fixed. Geometry caches
+  invalidate without reading a new sample or advancing mode clocks.
+* **TerminalEffect:** retained output/input repaints using the new viewport.
+  The subprocess and output queue are untouched. Previously wrapped history is
+  retained as stored lines; this pipe-based console does not resize a child PTY.
+* **Custom BaseEffect subclasses:** the default still keeps the original private
+  raster and clips its bottom/right edges. Growth reveals that raster again;
+  cells beyond it reveal the owner background. Override resize to adapt state.
+
+Cropped grid/raster state is discarded and is not restored on growth. Particle
+policies are effect-specific as described above. Resizing never consumes random
+numbers or advances simulation. Audio regression tests use synthetic samples;
+those tests do not establish hardware support.
 
 The adapters prepare their private buffers during the resize notification, so
 preserved or relocated pixels appear before the next scheduled layer update.
-New fire/rain/Matrix activity begins during normal simulation updates. Previously presented
+New random activity and deferred raster repainting begin during normal updates. Previously presented
 frames remain unchanged. Explicit collision geometry is never automatically
 moved or inferred from layout. An embedded terminal subprocess is not resized.
 The :doc:`demos/dashboard_demo` exercises snow and plasma with the existing solver.

@@ -20,18 +20,35 @@ Each demo is a standalone runnable example of an effect or composed scene. There
 
    python -m bruhanimate.demos.plasma_demo
 
+Every demo defaults to ``on_resize="resize"`` and continues playing when the
+terminal changes size. The typed ``on_resize`` argument also accepts ``"raise"``
+if you want resizing to stop playback. See :doc:`../resize` for the policy.
+
+All built-in simulations adapt their areas using documented state policies.
+The dashboard reflows its layout. The TV demo recenters its original computer
+artwork; fixed layer regions and moving window bounds are not rebuilt.
+Cycling showcases preserve their phase clocks
+and notify inactive effects too, so later phases use the new viewport.
+
+The :doc:`nature_demo` gallery combines six natural/procedural effects.
+See :doc:`../natural_effects` for settings and presets.
+
 Available Demos
 ---------------
 
+- **routing_demo** — Source pulse, route trace, moving marker, and arrival ripple over snow.
+
+- **image_demo** — Six resizable panels showcasing transitions, Wipe, masks, and styling.
+
 - **dashboard_demo** — Nested layouts, live solver statistics, status bar, and animated panels.
 
-- **windows_demo** — Four bouncing windows with plasma, fire, snow, and Matrix rain.
+- **windows_demo** — Five bouncing windows with plasma, fire, snow, Matrix rain, and live-audio Mirror.
 
-- **tv_demo** — Plasma inside a retro TV, snow behind it, and a temporary channel badge.
+- **tv_demo** — Plasma inside the original v0.2 computer artwork, snow behind it, and cycling Glitch/Focus/Dissolve/Wipe lettering.
 
 - **beam_demo** — Clipped snow, independently paced beam solver, and timed overlay.
 
-- **audio_demo** — System audio visualizer (EQ bars, waveform, mirror).
+- **audio_demo** — Seven sound-reactive modes, starting with a screen-wide field of objects; left/right selects modes.
 - **static_demo** — Static background fill.
 - **offset_demo** — Scrolling offset background.
 - **noise_demo** — Coloured random-noise pixels.
@@ -57,9 +74,17 @@ Available Demos
 .. toctree::
    :maxdepth: 2
 
+   nature_demo
+   water_demo
+   smoke_demo
+   metaballs_demo
+   cloth_demo
+   terrain_demo
    audio_demo
    beam_demo
    tv_demo
+   image_demo
+   routing_demo
    windows_demo
    dashboard_demo
    static_demo

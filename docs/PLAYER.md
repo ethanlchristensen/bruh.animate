@@ -286,8 +286,10 @@ raster there too. Plasma redraws at its current phase. Rain retains drops and bo
 lifetimes and moves floor splashes; Matrix retains characters and per-row timing.
 New Matrix cells initialize on the next update. Cropped state is discarded.
 Explicit collision surfaces keep their coordinates and dimensions. Resize consumes
-no randomness and advances no simulation ticks. Other built-ins retain their
-original rasters and clip their views; extra cells reveal the background. A temporarily empty
+no randomness and advances no simulation ticks. All built-ins now have adapters:
+grids retain cells, boids wrap their positions, Voronoi sites clamp to the new
+bounds, and audio keeps its capture worker. Custom BaseEffect subclasses retain
+the original clipping fallback. A temporarily empty
 terminal suspends drawing/updates while quit polling and duration limits continue.
 See the [resize guide](source/resize.rst) for custom content and backend contracts.
 Other failures propagate after cleanup. KeyboardInterrupt ends playback normally.
@@ -314,7 +316,9 @@ Scene completes when all finite children finish, ignoring endless backgrounds.
 
 ## Next steps
 
-General masks, reusable path pulses/ripples, character-assembly motion,
-image/video export, and resize adapters for additional simulations remain future work. Static collision
+Layer masks/styling, Glitch/Focus/Dissolve/Wipe image transitions, public
+AnimationSequence scheduling, and all built-in resize adapters are available.
+See the [motion guide](source/motion.rst) for path/pulse/ripple accents and the
+[export guide](source/exports.rst) for SVG, PNG, GIF, and MP4. Static collision
 configuration on rain/snow/fire remains explicit; Scene does not infer physics
 from painted layers.

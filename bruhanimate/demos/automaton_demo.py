@@ -16,7 +16,7 @@ limitations under the License.
 
 """Cycle through automaton configurations using one Player. q quits."""
 
-from bruhanimate import Buffer, effect_registry, play
+from bruhanimate import Buffer, ResizePolicy, effect_registry, play
 from bruhanimate.bruheffect import AutomatonSettings
 
 from ._showcase import Showcase
@@ -50,8 +50,14 @@ def build(buffer):
     )
 
 
-def run(*, frames=None, fps=TARGET_FPS):
-    return play(effect_factory=build, frames=frames, fps=fps, updates_per_second=30)
+def run(*, frames=None, fps=TARGET_FPS, on_resize: ResizePolicy = "resize"):
+    return play(
+        effect_factory=build,
+        frames=frames,
+        fps=fps,
+        updates_per_second=30,
+        on_resize=on_resize,
+    )
 
 
 if __name__ == "__main__":

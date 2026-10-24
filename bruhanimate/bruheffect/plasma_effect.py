@@ -16,6 +16,7 @@ limitations under the License.
 
 import math
 
+import numpy as np
 from bruhcolor import bruhcolored
 
 from ..bruhutil import GREY_SCALES, PLASMA_COLORS, Buffer
@@ -51,6 +52,7 @@ class PlasmaEffect(BaseEffect):
         self.t = 0
         self.vals = [self.rng.randint(1, 100) for _ in range(4)]
         self._colored_cache = None
+        self._geometry_key = None
 
     def _build_cache(self):
         if self.color:
@@ -180,26 +182,73 @@ class PlasmaEffect(BaseEffect):
         super().resize(size)
 
     def _paint_frame(self) -> None:
-        """Recompute the private raster from the current phase and geometry."""
+        """Paint vectorized waves, caching static geometry until size/values change.
+
+        Palette boundaries use the scalar formula to preserve visible cells.
+        This runs during update/resize; draw remains a read-only raster copy.
+        """
         if self._colored_cache is None:
             self._build_cache()
 
         cache = self._colored_cache
         scale_max = len(self.scale) - 1
-        t3 = self.t / 3.0
-
-        for y in range(self.buffer.height()):
-            for x in range(self.buffer.width()):
-                value = (
-                    abs(
-                        self._wave(x + t3, y, 1 / 4, 1 / 3, self.vals[0])
-                        + self._wave(x, y, 1 / 8, 1 / 5, self.vals[1])
-                        + self._wave(x, y + t3, 1 / 2, 1 / 5, self.vals[2])
-                        + self._wave(x, y, 3 / 4, 4 / 5, self.vals[3])
+        width, height = self.buffer.width(), self.buffer.height()
+        key = (width, height, tuple(self.vals))
+        if key != self._geometry_key:
+            self._x = np.arange(width, dtype=float)[None, :]
+            self._y = np.arange(height, dtype=float)[:, None]
+            self._static_waves = tuple(
+                np.sin(
+                    np.sqrt(
+                        (self._x - width * a) ** 2 + 4 * (self._y - height * b) ** 2
                     )
-                    / 4.0
+                    * math.pi
+                    / n
                 )
-                self.buffer.put_char(x, y, cache[int(scale_max * value)])
+                for a, b, n in (
+                    (1 / 8, 1 / 5, self.vals[1]),
+                    (3 / 4, 4 / 5, self.vals[3]),
+                )
+            )
+            self._geometry_key = key
+        t3 = self.t / 3.0
+        first = np.sin(
+            np.sqrt(
+                (self._x + t3 - width * (1 / 4)) ** 2
+                + 4 * (self._y - height * (1 / 3)) ** 2
+            )
+            * math.pi
+            / self.vals[0]
+        )
+        third = np.sin(
+            np.sqrt(
+                (self._x - width * (1 / 2)) ** 2
+                + 4 * (self._y + t3 - height * (1 / 5)) ** 2
+            )
+            * math.pi
+            / self.vals[2]
+        )
+        values = (
+            np.abs(first + self._static_waves[0] + third + self._static_waves[1])
+            / 4.0
+            * scale_max
+        )
+        indices = values.astype(np.intp)
+        # NumPy/libm can differ by a few ulps. Resolve palette boundaries with
+        # the scalar formula so optimization does not change visible cells.
+        ys, xs = np.nonzero(np.abs(values - np.rint(values)) < 1e-10)
+        for y, x in zip(ys.tolist(), xs.tolist()):
+            value = (
+                abs(
+                    self._wave(x + t3, y, 1 / 4, 1 / 3, self.vals[0])
+                    + self._wave(x, y, 1 / 8, 1 / 5, self.vals[1])
+                    + self._wave(x, y + t3, 1 / 2, 1 / 5, self.vals[2])
+                    + self._wave(x, y, 3 / 4, 4 / 5, self.vals[3])
+                )
+                / 4.0
+            )
+            indices[y, x] = int(scale_max * value)
+        self.buffer.buffer = np.asarray(cache, dtype=object)[indices].tolist()
 
         if self.show_info:
             self.buffer.put_at(0, 0, f"COLORS: {' '.join(str(v) for v in self.colors)}")

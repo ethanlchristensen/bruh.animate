@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 from ..bruhutil.bruhffer import Buffer
+from ._resize import raster
 from .base_effect import BaseEffect
 
 
@@ -45,3 +46,8 @@ class StaticEffect(BaseEffect):
                     + self.background_length
                 ),
             )
+
+    def resize(self, size: tuple[int, int]) -> None:
+        """Retain visible cells and expand the simulation raster without ticking."""
+        self.buffer = raster(self.buffer, size, self.background)
+        super().resize(size)

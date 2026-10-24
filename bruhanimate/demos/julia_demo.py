@@ -14,18 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from bruhanimate import play
+from bruhanimate import ResizePolicy, play
 
 TARGET_FPS = 30
 
 
-def run(*, frames=None, fps=TARGET_FPS):
+def run(*, frames=None, fps=TARGET_FPS, on_resize: ResizePolicy = "resize"):
     return play(
         "julia",
         frames=frames,
         fps=fps,
         updates_per_second=30,
         background=" ",
+        on_resize=on_resize,
     )
 
 

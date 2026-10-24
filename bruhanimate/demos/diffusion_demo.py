@@ -16,7 +16,7 @@ limitations under the License.
 
 """Cycle through diffusion configurations using one Player. q quits."""
 
-from bruhanimate import Buffer, effect_registry, play
+from bruhanimate import Buffer, ResizePolicy, effect_registry, play
 from bruhanimate.bruheffect import DiffusionSettings
 
 from ._showcase import Showcase
@@ -29,15 +29,36 @@ def build(buffer):
     phases = [
         (
             "Coral pattern  (f=0.0545, k=0.062)",
-            DiffusionSettings(f=0.0545, k=0.062, color=True, steps_per_frame=8),
+            DiffusionSettings(
+                f=0.0545,
+                k=0.062,
+                color=True,
+                steps_per_frame=8,
+                shading=True,
+                seed_pattern="scattered",
+            ),
         ),
         (
             "Spot pattern   (f=0.035,  k=0.065)",
-            DiffusionSettings(f=0.035, k=0.065, color=True, steps_per_frame=8),
+            DiffusionSettings(
+                f=0.035,
+                k=0.065,
+                color=True,
+                steps_per_frame=8,
+                shading=True,
+                seed_pattern="scattered",
+            ),
         ),
         (
             "Stripe pattern (f=0.026,  k=0.051)",
-            DiffusionSettings(f=0.026, k=0.051, color=True, steps_per_frame=8),
+            DiffusionSettings(
+                f=0.026,
+                k=0.051,
+                color=True,
+                steps_per_frame=8,
+                shading=True,
+                seed_pattern="scattered",
+            ),
         ),
     ]
     return Showcase(
@@ -58,8 +79,14 @@ def build(buffer):
     )
 
 
-def run(*, frames=None, fps=TARGET_FPS):
-    return play(effect_factory=build, frames=frames, fps=fps, updates_per_second=30)
+def run(*, frames=None, fps=TARGET_FPS, on_resize: ResizePolicy = "resize"):
+    return play(
+        effect_factory=build,
+        frames=frames,
+        fps=fps,
+        updates_per_second=30,
+        on_resize=on_resize,
+    )
 
 
 if __name__ == "__main__":

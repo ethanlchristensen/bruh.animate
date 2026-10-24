@@ -16,8 +16,16 @@ Turn a simulation, drawing function, or stream of solver snapshots into an ASCII
 animation. One player handles timing, input, changed-cell rendering, and terminal
 cleanup, so your code can concentrate on what happens and how it looks.
 
+For repeatable CPU measurements, run
+`uv run --locked python scripts/benchmark_rendering.py --output benchmark.json`.
+See the [rendering performance guide](docs/source/performance.rst) for methodology
+and interpretation; these measurements exclude native terminal I/O.
+
 - **Built-in effects:** snow, fire, rain, stars, Matrix, cellular automata, and more.
 - **Layered scenes:** combine animated backgrounds, text, and custom drawings.
+- **Resizable demos:** all demo `run()` entry points default to
+  `on_resize="resize"`; all built-in effects adapt their simulation areas.
+  Custom BaseEffect subclasses retain and clip their original rasters by default. Fixed demo artwork and window bounds keep their geometry.
 - **Solver playback:** pause, step, and change speed while consuming snapshots lazily.
 - **Grid helpers:** board coordinates, centered layouts, paths, markers, and clipping.
 
@@ -34,6 +42,34 @@ python -m pip install "bruhanimate>=1,<2"
 
 For unreleased code, use the [source checkout](#development). Optional audio
 capture dependencies are available with `python -m pip install "bruhanimate[audio]>=1,<2"`.
+
+From a checkout, run `uv run --locked --extra audio python -m bruhanimate.demos.audio_demo`
+while music is playing. Left/right arrows select the previous/next visualization
+with no automatic cycling; q quits. See the
+[audio demo guide](docs/source/demos/audio_demo.rst).
+
+The audio demo plays inside the original computer artwork with snow behind it;
+press **C** to cycle classic, expanded artwork, and a rectangular computer.
+Expanded inserts middle sections to give the monitor more room while keeping
+the original corners and keyboard. Small terminals use the rectangular frame
+automatically. Arrow keys still select modes, and resize/style changes preserve
+capture and snow. Use `run(computer="expanded")` from
+`bruhanimate.demos.audio_demo` to start with the larger artwork.
+
+The audio demo starts with **Objects**, a field of blocks across the monitor:
+bass grows them from 3×3 cells until they touch and fill the viewport, mids move
+them within the remaining space, treble adds sparkles, and volume sets brightness.
+The seven supported modes are `objects`, `tiles`, `glow`, `bars`, `mirror`,
+`waveform`, and `spectrum`. Tiles lights frequency blocks across the screen; Glow
+blends bass, mids, and treble into moving pools of color. `AudioSettings` exposes typed mode choices,
+`sensitivity`, `smoothing`, `noise_floor`, and `bar_gain`; `effects.audio.presets()` lists presets.
+Bars/Mirror default to `bar_gain=2` for taller bars; use `1` for the original
+height or increase it for more screen coverage. The demo also fills column gaps.
+Frequency bands sum energy so quieter mids and diffuse treble remain visible
+beside bass. The default `noise_floor=-65` retains quiet detail; raise it to
+`-55` or `-40` to suppress more background noise.
+Experimental modes were removed from the API—see the
+[audio migration notes](docs/source/bruheffect/audio_effect.rst#removed-modes-in-1-3).
 
 Save this as `animation.py` and run `python animation.py` in a terminal:
 
@@ -133,9 +169,13 @@ message, and a status display. Space pauses the solver, n/right steps, +/- chang
 speed, and q quits. See the [composition guide](docs/source/composition.rst) for
 typed API examples, clipping coordinates, timing, and ownership.
 
-For a visual composition example, run a retro TV showing colorful plasma with
-snow falling behind its opaque cabinet. A channel badge disappears after two
-seconds; the TV keeps playing until q or the frame limit:
+For a visual composition example, run the original v0.2 `computer` artwork with
+colorful plasma inside its angled monitor and snow falling behind it. A channel
+badge disappears after two seconds, then pyfiglet "bruh" cycles through Glitch,
+Focus, Dissolve, and Wipe entrances over the moving plasma. Each holds for three
+seconds, animates back out in reverse, then leaves a one-second gap before the next.
+Playback continues until q
+or the frame limit:
 
 ```python
 from bruhanimate import tv_demo
@@ -143,20 +183,81 @@ from bruhanimate import tv_demo
 tv_demo.run(frames=180, fps=60)
 ```
 
-Or run `python -m bruhanimate.demos.tv_demo` in your terminal.
-See [the TV demo](docs/source/demos/tv_demo.rst) for the layer layout.
+For your own scene, use
+`GlitchImageEffect(text_to_image("bruh", font="small"), characters_per_second=18,
+travel_time=0.65, seed=42, repeat=True, reverse=True, hold_duration=3, repeat_delay=1)`
+(import both helpers from `bruhanimate`).
+The typed options control launch rate, flight time in seconds, and reproducible
+glitches. Resize preserves progress. Use `on_complete="hold"` to keep the background
+running once it finishes. `ImageEffect(..., characters_per_second=18)` also remains
+available for a simple typewriter reveal.
 
-For four windows bouncing around the terminal, each with its own effect:
+`FocusImageEffect(rows, duration=2, scatter=(8, 3), seed=42)` assembles scattered
+characters. `DissolveImageEffect(rows, duration=2, direction="in", seed=42)` reveals
+them in random order; `direction="out"` removes them. Both support the same hold,
+gap, and repeat controls as Glitch.
+Set `reverse=True` to retrace the effect after its hold, before the gap. Each leg
+uses the same duration and seeded frames; resize preserves the current leg.
+
+`WipeImageEffect(rows, duration=2, direction="right", reverse=True)` reveals a
+straight edge across the text, then wipes it back out. `WipeDirection` offers
+`"left"`, `"right"`, `"up"`, and `"down"` in editor completion.
+
+Use `AnimationSequence` and `SequenceStep` to schedule **any animation**, with
+fresh factory-created children, simulation-second durations, frozen holds, and
+blank gaps. The TV demo uses this public API:
+
+```python
+from bruhanimate import AnimationSequence, SequenceStep, WipeImageEffect, play
+
+sequence = AnimationSequence(
+    SequenceStep(lambda: WipeImageEffect("bruh", duration=1, direction="right"),
+                 duration=1, hold_duration=2, gap=0.5, name="Wipe right"),
+    SequenceStep(lambda: WipeImageEffect("bruh", duration=1, direction="down"),
+                 duration=1, hold_duration=2, gap=0.5, name="Wipe down"),
+    repeat=True,
+)
+play(sequence, duration=12, on_resize="resize")
+```
+
+See the [sequencing guide](docs/source/sequencing.rst) for completion, skipped
+steps, child ownership, and resize behavior.
+
+Masks and styling work with **any animation**, through
+`Layer(content, mask=ImageMask(rows), style=TextStyle(foreground=231),
+preserve_background=True)`. Image effects operate on ASCII/text rows; `Animation`
+remains the general content contract. See the [image guide](docs/source/images.rst)
+for standalone examples and typed options.
+
+```python
+from bruhanimate import image_demo
+
+image_demo.run(frames=600, fps=60)
+```
+
+This six-panel showcase compares Glitch, Focus, Dissolve, Wipe, animated plasma
+painted through an image mask, and a public animation sequence. It reflows when the terminal resizes.
+
+Or run `python -m bruhanimate.demos.tv_demo` in your terminal.
+Use an 80-column by 34-row terminal to see the full artwork; resize recenters it
+and smaller terminals clip safely. See [the TV demo](docs/source/demos/tv_demo.rst)
+for the masked screen and layer layout.
+
+For five windows bouncing around the terminal, including live audio:
 
 ```python
 from bruhanimate import windows_demo
 
-windows_demo.run(frames=180, fps=60)
+windows_demo.run(frames=180, fps=60, audio_mode="mirror")
 ```
 
-Run `python -m bruhanimate.demos.windows_demo` for continuous playback.
-Plasma, fire, snow, and Matrix rain move with their frames and overlap in a fixed
-stacking order. See [the moving windows demo](docs/source/demos/windows_demo.rst).
+Run `uv run --locked --extra audio python -m bruhanimate.demos.windows_demo`
+for continuous playback. Plasma, fire, snow, Matrix rain, and audio Mirror move with
+their frames and overlap in a fixed stacking order. Choose another typed
+`audio_mode`, such as `"mirror"`, or use `None` for four windows without capture.
+See [the moving windows demo](docs/source/demos/windows_demo.rst).
+Windows are larger now: 36×11 cells on an 80×24 terminal, up to 60×20 on larger
+terminals, including borders. They overlap as they bounce.
 
 Use `Panel` to compose your own movable windows. `size` is the content size;
 the border adds two columns and two rows. The factory receives the correct local
@@ -292,6 +393,51 @@ as messages arrive; End or `log.follow_tail = True` returns to the newest messag
 [scrolling guide](docs/source/views.rst) covers resize anchoring, navigation,
 ownership, and an interactive append example.
 
+## Board highlights and playable exports
+
+`PathEffect` moves a marker along supplied cells or traces the route. `PulseEffect`
+brightens a cell; `RippleEffect` expands a circle, diamond, or square. All use board
+coordinates and follow centered placement on resize. Editor completion exposes
+`PathMode`, `RippleMetric`, and their constructor options.
+
+```python
+from bruhanimate import PathEffect, play
+
+play(PathEffect([(0, 0), (1, 0), (2, 0)], size=(3, 1), mode="trace",
+                duration=2, hold_duration=1, repeat=True),
+     duration=5, on_resize="resize")
+```
+
+Run the complete example with `python -m bruhanimate.demos.routing_demo`.
+See the [motion guide](docs/source/motion.rst) for timing and composition.
+
+`save_svg(frame, path)` needs no extra dependencies. Install
+`pip install "bruhanimate[export]"` for `save_png` and `export_animation` (GIF/MP4).
+`ExportStyle` exposes font, cell size, and RGB colors; `ExportFormat` exposes the
+animation formats. MP4 uses the bundled FFmpeg executable on supported platforms.
+
+```python
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from bruhanimate import capture, save_svg
+
+frames = []
+capture("plasma", on_frame=frames.append, frames=1, width=30, height=10)
+with TemporaryDirectory() as directory:
+    save_svg(frames[0], Path(directory) / "plasma.svg")
+```
+
+For a persistent video after installing the extra:
+
+```sh
+python -c "from bruhanimate import export_animation; export_animation('plasma.mp4', 'plasma', duration=5, fps=30)"
+```
+
+Export owns its animation and requires a finite frame/duration bound. Existing
+files require `overwrite=True`. GIF buffers a bounded number of pixels; MP4
+streams frames. The [export guide](docs/source/exports.rst) covers these limits,
+font selection, and exporting your own scenes without a terminal.
+
 ## Live terminal resize
 
 Live resize is opt-in with `on_resize="resize"` on `play`, `Player`, or
@@ -300,7 +446,8 @@ Live resize is opt-in with `on_resize="resize"` on `play`, `Player`, or
 its parent's allocation. Snow piles and fire follow the new bottom; plasma fills
 the new area at its current phase. Rain preserves drops and lightning lifetimes,
 and Matrix preserves characters and row timing. Cropped state is discarded;
-other built-ins retain their original simulation size and clip on shrink. Custom
+all built-ins now adapt their simulation dimensions. Grids retain cell state,
+particles retain velocities, and audio keeps its capture worker. Custom
 animations can implement the same typed `Resizable.resize((width, height))` hook. See the
 [resize guide](docs/source/resize.rst) for lifecycle and platform details.
 
@@ -378,6 +525,41 @@ Change state in `update(dt)` and read it in `draw(buffer)`. The player owns the
 loop; animations own their state. The [core-concepts guide](https://ethanlchristensen.github.io/bruh.animate/concepts.html)
 walks through this division with complete examples.
 
+## Water, smoke, cloth, and procedural worlds
+
+Run all six together in resizable panels:
+
+```sh
+python -m bruhanimate.demos.nature_demo
+```
+
+| Effect | Presets | What it does |
+| --- | --- | --- |
+| `water` | `pond`, `rain`, `storm` | Interacting ripples and reflecting edges; inject your own drops |
+| `diffusion` | `coral`, `spots`, `stripes`, `organic` | Reaction–diffusion; `organic` adds shaded, scattered patterns |
+| `smoke` | `plume`, `ink`, `windy` | Rising smoke or sinking ink, with optional solid obstacles |
+| `metaballs` | `lava`, `orbit`, `outline` | Moving blobs that merge into shared surfaces |
+| `cloth` | `flag`, `checker`, `banner` | Waving cloth carrying a pattern, text, or your ASCII art |
+| `terrain` | `hills`, `mountains`, `contours` | A perspective flyover of seeded terrain |
+
+```python
+from bruhanimate import effects
+
+print(effects.names())
+print(effects.water.presets())
+settings = effects.water.preset("pond")
+settings.drop_chance = 0.2
+effects.water.play(settings=settings, fps=60, updates_per_second=30,
+                   duration=10, on_resize="resize")
+```
+
+Editors complete `effects.water`, preset names, and `WaterSettings` fields;
+the same typed catalog is available for every effect above. Each has a standalone
+demo (`python -m bruhanimate.demos.cloth_demo`, for example). No audio dependency
+is needed. Smoke uses an artistic flow field and cloth uses traveling waves.
+See the [natural effects guide](docs/source/natural_effects.rst) for controls,
+custom cloth art, units, and resize behavior.
+
 ## Explore the demos
 
 ```sh
@@ -398,12 +580,19 @@ and playback controls. Demos expose `run(frames=None, fps=...)` for use from Pyt
 | [Getting started](https://ethanlchristensen.github.io/bruh.animate/getting_started.html) | Installation, first animation, and demos |
 | [Core concepts](https://ethanlchristensen.github.io/bruh.animate/concepts.html) | Player, state, buffers, composition, and solver snapshots |
 | [Player and composition](https://ethanlchristensen.github.io/bruh.animate/player.html) | Timing, lifecycle, ownership, and the API |
+| [Image effects](docs/source/images.rst) | Glitch, Focus, Dissolve, Wipe, masks, and styling |
+| [Animation sequences](docs/source/sequencing.rst) | Timed factories, holds, gaps, completion, and ownership |
+| [Resize](docs/source/resize.rst) | Layout reflow and built-in state preservation |
+| [Rendering performance](docs/source/performance.rst) | CPU and native terminal benchmarks |
+| [Release 1.3.0](docs/source/release_1_3.rst) | Features and upgrade notes |
 | [Solver playback](https://ethanlchristensen.github.io/bruh.animate/playback.html) | Pause, stepping, completion, and bounded solver work |
 | [Migration to 1.0](https://ethanlchristensen.github.io/bruh.animate/migration.html) | Replacing the 0.2.x renderer APIs |
 | [Release process](https://ethanlchristensen.github.io/bruh.animate/releasing.html) | Dev-to-main workflow, versions, tags, and publishing |
 
-Resize currently ends playback after cleanup; automatic reflow and image/video
-export remain planned work. Headless frame capture and `.cast` export are supported.
+Live terminal reflow is available with `on_resize="resize"`; all demos enable it
+by default. Headless capture, `.cast` recording, SVG/PNG snapshots, and GIF/MP4
+export are supported. See the [native checks guide](docs/source/platform_checks.rst)
+for terminal and optional audio validation.
 The terminal demo is a pipe-based command console, not a PTY emulator.
 
 ## Development
