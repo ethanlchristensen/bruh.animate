@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import math
 import os
 import subprocess
-from collections.abc import Iterator
+import time
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import lru_cache
@@ -20,6 +22,25 @@ from .styling import _SGR, _prefix_and_glyph
 
 RGB = tuple[int, int, int]
 ExportFormat = Literal["gif", "mp4"]
+
+
+class ExportCancelled(RuntimeError):
+    """Export stopped cooperatively; no partial destination was published."""
+
+
+@dataclass(frozen=True)
+class ExportProgress:
+    """Rendered frames, optional frame upper bound and wall-clock seconds.
+
+    remaining_seconds estimates rendering only, excluding final encoding.
+    Finite content may finish before total_frames. Callbacks run synchronously.
+    """
+
+    frames: int
+    total_frames: int | None
+    elapsed_seconds: float
+    remaining_seconds: float | None
+    phase: Literal["render", "encode", "complete"]
 
 
 def _rgb(value: RGB) -> RGB:
@@ -311,7 +332,9 @@ class _Rasterizer:
             ImageFont.truetype(os.fspath(style.font), style.font_size)
             if style.font is not None
             # Supplying size selects Pillow's scalable default font.
-            else cast(ImageFont.FreeTypeFont, ImageFont.load_default(size=style.font_size))
+            else cast(
+                ImageFont.FreeTypeFont, ImageFont.load_default(size=style.font_size)
+            )
         )
         ascent, descent = self.font.getmetrics()
         # A terminal row has one baseline, including punctuation and descenders.
@@ -492,6 +515,8 @@ def export_animation(
     seed: int | None = None,
     overwrite: bool = False,
     gif_max_pixels: int = 20_000_000,
+    on_progress: Callable[[ExportProgress], None] | None = None,
+    cancelled: Callable[[], bool] | None = None,
 ) -> int:
     """Render owned content to GIF or H.264 MP4 without opening a terminal.
 
@@ -506,6 +531,11 @@ def export_animation(
     Complete output is atomically published; failures clean temporary output and
     close owned content/encoder. Existing paths require overwrite=True. Parent
     directories must exist. Returned value is the number of captured frames.
+    on_progress receives frame counts and wall-clock estimates after each frame
+    and at encoding/completion. cancelled is checked before startup, between
+    frames and around final encoding; True raises ExportCancelled. Blocking
+    encoder operations cannot be interrupted by this callback. Ctrl+C also
+    cleans up. Cancellation preserves any existing destination.
     """
     selected = format if format is not None else Path(path).suffix.lower().lstrip(".")
     if selected not in ("gif", "mp4"):
@@ -518,6 +548,29 @@ def export_animation(
         raise TypeError("gif_max_pixels must be an integer")
     if gif_max_pixels < 1:
         raise ValueError("gif_max_pixels must be positive")
+    if on_progress is not None and not callable(on_progress):
+        raise TypeError("on_progress must be callable")
+    if cancelled is not None and not callable(cancelled):
+        raise TypeError("cancelled must be callable")
+    started = time.monotonic()
+    rendered = 0
+    total: int | None = None
+
+    def check_cancel() -> None:
+        if cancelled is not None and cancelled():
+            raise ExportCancelled("Export cancelled")
+
+    def report(phase: Literal["render", "encode", "complete"]) -> None:
+        elapsed = max(0.0, time.monotonic() - started)
+        remaining = (
+            max(0, total - rendered) * elapsed / rendered
+            if total is not None and rendered and phase == "render"
+            else None
+        )
+        if on_progress is not None:
+            on_progress(ExportProgress(rendered, total, elapsed, remaining, phase))
+
+    check_cancel()
     images: list = []
     delays: list[int] = []
     rasterizer: _Rasterizer | None = None
@@ -525,7 +578,8 @@ def export_animation(
     temporary: Path
 
     def consume(frame: Frame) -> None:
-        nonlocal rasterizer, encoder
+        nonlocal rasterizer, encoder, rendered
+        check_cancel()
         if (
             selected == "gif"
             and (len(images) + 1)
@@ -554,6 +608,9 @@ def export_animation(
                 encoder.write(image.tobytes())
             finally:
                 image.close()
+        rendered += 1
+        report("render")
+        check_cancel()
 
     player = _player(
         effect,
@@ -573,11 +630,25 @@ def export_animation(
     )
     if selected == "gif" and fps > 100:
         raise ValueError("GIF fps must not exceed 100; use MP4 for higher rates")
+    limits = [
+        limit
+        for limit in (
+            frames,
+            math.ceil(duration * fps) if duration is not None else None,
+        )
+        if limit is not None
+    ]
+    total = min(limits) if limits else None
     if player.frames == 0 or duration == 0:
         return 0
     try:
         with _output(path, overwrite) as temporary:
             count = player.run()
+            if player.interrupted:
+                raise ExportCancelled("Export interrupted")
+            check_cancel()
+            report("encode")
+            check_cancel()
             if encoder is not None:
                 encoder.close()
             if images:
@@ -593,6 +664,9 @@ def export_animation(
                 )
             if not count or temporary.stat().st_size == 0:
                 raise RuntimeError("Export produced no frames")
+            check_cancel()
+            report("complete")
+            check_cancel()
         return count
     finally:
         if encoder is not None:

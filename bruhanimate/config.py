@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import asdict, dataclass, fields, is_dataclass
+from dataclasses import asdict, dataclass, fields, is_dataclass, replace
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any, get_origin, get_type_hints
 
 from ._validation import _seconds
-from .bruheffect.registry import effect_registry
+from .bruheffect.registry import EffectEntry, effect_registry
 from .resize import _size
 
 
@@ -128,3 +128,43 @@ class EffectConfig:
         config = cls(**data)
         config.validate()
         return config
+
+
+def resolve_overrides(
+    entry: EffectEntry,
+    preset: str | None,
+    assignments: list[str],
+    base: object | None = None,
+) -> object | None:
+    selected = effect_registry.resolve_settings(
+        entry.name, preset=preset, settings=base
+    )
+    if not assignments:
+        return selected
+    cls = entry.settings_cls
+    if cls is None or not is_dataclass(cls):
+        raise ValueError(
+            f"Effect '{entry.name}' does not accept dataclass setting overrides"
+        )
+    hints = get_type_hints(cls)
+    changes = {}
+    for assignment in assignments:
+        key, separator, raw = assignment.partition("=")
+        if not separator or key not in hints:
+            raise ValueError(
+                f"Expected FIELD=VALUE; available settings: {', '.join(hints)}"
+            )
+        if key in changes:
+            raise ValueError(f"Setting '{key}' was supplied more than once")
+        try:
+            value = json.loads(raw)
+        except json.JSONDecodeError:
+            value = raw
+        if get_origin(hints[key]) is tuple and isinstance(value, list):
+            value = tuple(value)
+        changes[key] = value
+    # replace preserves all selected preset fields and invokes dataclass validation.
+    if selected is None:
+        return cls(**changes)
+    assert is_dataclass(selected) and not isinstance(selected, type)
+    return replace(selected, **changes)

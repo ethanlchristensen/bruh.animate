@@ -21,6 +21,7 @@ REQUIRED = {
     "browser.py",
     "cache.py",
     "config.py",
+    "doctor.py",
     "history.py",
     "themes.py",
     "tween.py",

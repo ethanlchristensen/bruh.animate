@@ -95,3 +95,60 @@ API
 
 .. automodule:: bruhanimate.export
    :members: ExportStyle, ExportFormat, save_svg, save_png, export_animation
+
+Progress and cancellation
+-------------------------
+
+CLI exports show progress on an interactive stderr. Use ``--progress`` to show
+it in redirected logs or ``--quiet`` to suppress it. Ctrl+C cleans up the encoder
+and temporary file and returns exit status 130, preserving any existing output.
+The library accepts ``on_progress`` and ``cancelled`` callbacks:
+
+.. code-block:: python
+
+   from pathlib import Path
+   from tempfile import TemporaryDirectory
+   from bruhanimate import ExportCancelled, export_animation
+
+   updates = []
+   with TemporaryDirectory() as directory:
+       try:
+           export_animation(
+               Path(directory) / "preview.gif", "snow", frames=60,
+               on_progress=updates.append,
+               cancelled=lambda: True,
+           )
+       except ExportCancelled:
+           pass  # Cancelled before content or the encoder starts.
+       assert not list(Path(directory).iterdir())
+
+``ExportProgress`` contains rendered ``frames``, an optional ``total_frames``
+upper bound, wall-clock ``elapsed_seconds``, estimated ``remaining_seconds``, and
+``phase`` (render, encode, complete). Finite content may finish below the upper
+bound. The ETA covers rendering only; final encoding may take additional time.
+Callbacks run synchronously. Cancellation is checked before startup, between
+frames and around final encoding; it cannot interrupt a blocking encoder call.
+The complete callback runs immediately before atomic publication; callback errors
+still preserve the original destination. Zero-frame exports report no progress.
+
+RGB colors in widgets and exports
+-----------------------------------
+
+``TextStyle`` accepts palette indexes, ``#RRGGBB`` and three-integer RGB tuples.
+The resulting ANSI colors are interpreted consistently by SVG/PNG/GIF/MP4 export.
+``enabled=False`` removes styling; ``enabled=True`` explicitly enables it. The
+normal ``None`` policy honors a present ``ANSI_COLORS_DISABLED`` or nonempty
+``NO_COLOR``. These controls do not probe a terminal or downgrade RGB colors.
+
+.. code-block:: python
+
+   from bruhanimate import Buffer, Label, TextStyle
+
+   label = Label("RGB", style=TextStyle(foreground="#66ccff", enabled=True))
+   buffer = Buffer(1, 3)
+   label.start()
+   try:
+       label.draw(buffer)
+       assert "38;2;102;204;255" in buffer.get_char(0, 0)
+   finally:
+       label.close()

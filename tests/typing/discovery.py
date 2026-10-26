@@ -228,7 +228,7 @@ assert_type(layout.build(Buffer(24, 80)), ResizableAnimation)
 assert_type(Label("x").text, str)
 assert_type(Fixed(4).cells, int)
 assert_type(Flex(2).weight, int)
-assert_type(TextStyle().foreground, int | None)
+assert_type(TextStyle().foreground, int | str | tuple[int, int, int] | None)
 assert_type(dashboard_demo.run(frames=60), int)
 Slot(effect_factory=panel_factory, size=Flex())
 Label("x", align="start")  # type: ignore[arg-type]
@@ -241,7 +241,7 @@ Row(Label("x"))  # type: ignore[arg-type]
 Flex("big")  # type: ignore[arg-type]
 Fixed(1.5)  # type: ignore[arg-type]
 Column(padding="wide")  # type: ignore[arg-type]
-TextStyle(background="blue")  # type: ignore[arg-type]
+TextStyle(background=1.5)  # type: ignore[arg-type]
 
 policy: ResizePolicy = "resize"
 assert_type(play("snow", on_resize=policy), int)

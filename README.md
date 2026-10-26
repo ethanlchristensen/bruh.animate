@@ -58,14 +58,16 @@ Set `frames=120` to limit the number of presented frames.
 
 ```sh
 bruhanimate browse
+bruhanimate doctor
 bruhanimate save-preset snow snow.json --preset light --seed 42 --duration 5
 bruhanimate play snow --config snow.json --set wind=0.4
 # Requires pip install "bruhanimate[export]":
-bruhanimate export snow snow.mp4 --config snow.json
+bruhanimate export snow snow.mp4 --config snow.json --progress
 ```
 
 The browser previews effects/presets with arrow keys and prints copyable Python
-when you quit. Saved JSON stores validated settings, seeds, playback rates and
+when you quit. Use `/` to search, `c` for categories, `e` to edit settings, `s` to
+save a preset, and `x` to export after restoring the terminal. Saved JSON stores validated settings, seeds, playback rates and
 capture dimensions. Explicit CLI flags override saved options. See the
 [browser/configuration guide](docs/source/workbench.rst).
 
@@ -622,6 +624,8 @@ by default. Headless capture, `.cast` recording, SVG/PNG snapshots, and GIF/MP4
 export are supported. See the [native checks guide](docs/source/platform_checks.rst)
 for terminal and optional audio validation.
 The terminal demo is a pipe-based command console, not a PTY emulator.
+
+Changes in 1.5.0 are described in the [migration notes](docs/MIGRATING_1.5.md).
 
 ## Development
 

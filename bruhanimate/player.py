@@ -209,6 +209,16 @@ class Player:
         self.clock = clock
         self.sleep = sleep
         self._running = False
+        self._interrupted = False
+
+    @property
+    def interrupted(self) -> bool:
+        """Whether the latest run stopped because of KeyboardInterrupt.
+
+        Interactive playback still stops normally. Exporters can use this flag
+        to discard incomplete output instead of publishing a partial capture.
+        """
+        return self._interrupted
 
     def _create_animation(self) -> Animation:
         source = self.source
@@ -259,6 +269,7 @@ class Player:
         """
         if self._running:
             raise RuntimeError("This Player is already running")
+        self._interrupted = False
         if self.frames == 0 or self.duration == 0:
             return 0
         self._running = True
@@ -343,7 +354,7 @@ class Player:
                         else:
                             next_frame = self.clock()
         except KeyboardInterrupt:
-            pass
+            self._interrupted = True
         finally:
             self._running = False
         return presented

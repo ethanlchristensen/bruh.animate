@@ -349,8 +349,9 @@ def test_browser_and_cache_close_partial_startup_once(monkeypatch):
     monkeypatch.setattr(child, "close", Mock())
     monkeypatch.setattr(effect_registry, "create", Mock(return_value=child))
     browser = EffectBrowser()
-    with pytest.raises(ValueError, match="startup"):
-        browser.start()
+    browser.start()
+    assert browser.error == "ValueError: startup"
+    assert not browser._closed
     browser.close()
     child.close.assert_called_once()
     child.close.reset_mock()

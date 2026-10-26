@@ -127,3 +127,69 @@ def test_command_that_exits_before_job_assignment_keeps_its_output(monkeypatch):
         assert line == "ready\n"
     finally:
         renderer.close()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows job ownership")
+def test_command_waits_for_job_assignment_and_stdin_survives_gate(
+    monkeypatch, tmp_path
+):
+    import time
+
+    import win32job
+
+    marker = tmp_path / "started"
+    original = win32job.AssignProcessToJobObject
+
+    def delayed_assignment(job, handle):
+        time.sleep(0.3)
+        assert not marker.exists(), "Command ran before ownership was established"
+        return original(job, handle)
+
+    monkeypatch.setattr(win32job, "AssignProcessToJobObject", delayed_assignment)
+    renderer = TerminalEffect(Buffer(3, 10))
+    script = "from pathlib import Path; import sys; Path(sys.argv[1]).touch(); print(input(), flush=True)"
+    renderer.current_input = subprocess.list2cmdline(
+        [sys.executable, "-u", "-c", script, str(marker)]
+    )
+    # The gate must use the real interpreter, not a venv redirector that can
+    # create a process before job assignment. The user's command stays intact.
+    monkeypatch.setattr(sys, "executable", "must-not-launch-venv-redirector.exe")
+    try:
+        renderer.execute_command()
+        assert renderer.active_process is not None, renderer.terminal_history
+        renderer.current_input = "hello"
+        renderer.execute_command()
+        result = ""
+        while not result.endswith("\n"):
+            result += renderer.output_queue.get(timeout=5)
+        assert result == "hello\n"
+    finally:
+        renderer.close()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows job ownership")
+def test_job_assignment_failure_never_runs_command(monkeypatch, tmp_path):
+    import win32job
+
+    marker = tmp_path / "must-not-exist"
+    monkeypatch.setattr(
+        win32job,
+        "AssignProcessToJobObject",
+        Mock(side_effect=OSError("job unavailable")),
+    )
+    renderer = TerminalEffect(Buffer(3, 10))
+    renderer.current_input = subprocess.list2cmdline(
+        [
+            sys.executable,
+            "-c",
+            "from pathlib import Path; import sys; Path(sys.argv[1]).touch()",
+            str(marker),
+        ]
+    )
+    try:
+        renderer.execute_command()
+        assert not marker.exists()
+        assert renderer.active_process is None
+        assert any("job unavailable" in line for line in renderer.terminal_history)
+    finally:
+        renderer.close()

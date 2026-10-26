@@ -20,6 +20,11 @@ repository root; examples use 1.0.0 unless another target is specified.
 | Push `vMAJOR.MINOR.PATCH` | Run again for the tag's exact commit | Build as a release gate | Yes, after every gate passes |
 | Manually run Release with an existing tag | Same release checks | Build as a release gate | Retry publication |
 
+Documentation-only commits skip the CI matrix; test-only commits skip docs.
+Lightweight change-classification jobs still report results, so required checks
+do not stay pending. Source, dependency, workflow and unknown changes run both.
+Release refs and manual validation always run all gates.
+
 A standalone push to `dev` has no branch-push workflow; an open PR targeting main
 receives checks when its branch changes. Docs can be released independently of a
 package by merging documentation changes to main.

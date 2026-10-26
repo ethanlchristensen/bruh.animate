@@ -39,7 +39,7 @@ wheels = [
 
 [[package]]
 name = "bruhanimate"
-version = "1.4.0"
+version = "1.5.0"
 source = { editable = "." }
 dependencies = [
     { name = "bruhcolor" },
@@ -75,7 +75,7 @@ docs = [
 
 [package.metadata]
 requires-dist = [
-    { name = "bruhcolor", specifier = ">=0.0.66,<0.0.67" },
+    { name = "bruhcolor", specifier = ">=0.0.67,<0.0.68" },
     { name = "future", specifier = ">=1.0.0,<2.0.0" },
     { name = "imageio-ffmpeg", marker = "extra == 'export'", specifier = ">=0.6,<0.7" },
     { name = "numpy", specifier = ">=2.3.4,<3.0.0" },
@@ -103,11 +103,11 @@ docs = [
 
 [[package]]
 name = "bruhcolor"
-version = "0.0.66"
+version = "0.0.67"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/74/3c/289176cae526618a5220bbe1d7d91e1ed58ac9addc7880154dbd2759c3e6/bruhcolor-0.0.66.tar.gz", hash = "sha256:b207120f59e0b8fc675bd27f3bc06e79410889ea45bac46f0621de04dae23a22", size = 5911, upload-time = "2026-10-26T16:32:20.372Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/99/e0/3e8867be56ca2090c396c15208d224e8320dbd0b96890203cbc590095abb/bruhcolor-0.0.67.tar.gz", hash = "sha256:8ed56ead1641dce7c63ec014469a626eb7ecf98fe2424e4b63d0f5282bf25df5", size = 7067, upload-time = "2026-10-26T19:29:24.157Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b1/0f/21a925b0d3c8802f1b600f0ca5256fbf5346aa531d0f1ee78115990edaae/bruhcolor-0.0.66-py3-none-any.whl", hash = "sha256:55b7830d40f77903caba69b8f26f9303a7c2caf889ff4d23e59adc6cf77e0b8c", size = 7554, upload-time = "2026-10-26T16:32:19.264Z" },
+    { url = "https://files.pythonhosted.org/packages/a7/64/1d74edd1d74556718d4ee9562079f494d4eff2b6281f910fb12836c079a7/bruhcolor-0.0.67-py3-none-any.whl", hash = "sha256:9db76fadd875db9ada97f7e1b48f6490d6152b17c62952bd84018b089c06630a", size = 8829, upload-time = "2026-10-26T19:29:22.838Z" },
 ]
 
 [[package]]

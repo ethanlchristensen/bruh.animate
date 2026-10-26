@@ -87,9 +87,32 @@ class TerminalEffect(BaseEffect):
             env["PYTHONUNBUFFERED"] = "1"
             env["FORCE_COLOR"] = "1"  # Try to force color support
 
+            # Windows must own the launcher before it can create the shell or
+            # descendants. Assigning a running shell races its first child.
+            # The isolated launcher consumes exactly one gate byte, leaving
+            # subsequent stdin for the command, and exits if the pipe closes.
+            # Use the base interpreter: a Windows venv redirector can spawn its
+            # real interpreter before we assign the redirector to the job.
+            launch = (
+                [
+                    getattr(sys, "_base_executable", sys.executable),
+                    "-I",
+                    "-S",
+                    "-u",
+                    "-c",
+                    "import os,sys; gate=os.read(0,1); "
+                    "import subprocess; "
+                    "sys.exit(subprocess.call(sys.argv[1], shell=True, "
+                    "stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr, "
+                    "creationflags=subprocess.CREATE_NO_WINDOW) if gate==b'G' else 1)",
+                    cmd,
+                ]
+                if sys.platform == "win32"
+                else cmd
+            )
             self.active_process = subprocess.Popen(
-                cmd,
-                shell=True,
+                launch,
+                shell=sys.platform != "win32",
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -134,6 +157,9 @@ class TerminalEffect(BaseEffect):
                 except (OSError, pywintypes.error):
                     if self.active_process.poll() is None:
                         raise
+                if self._job_assigned:
+                    self.active_process.stdin.write("G")
+                    self.active_process.stdin.flush()
             for out in (self.active_process.stdout, self.active_process.stderr):
                 worker = threading.Thread(
                     target=self._enqueue_output,

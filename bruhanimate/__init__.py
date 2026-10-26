@@ -97,7 +97,15 @@ from .cache import CachedAnimation
 from .capture import Frame, capture, record
 from .config import EffectConfig
 from .effects import EffectName
-from .export import ExportFormat, ExportStyle, export_animation, save_png, save_svg
+from .export import (
+    ExportCancelled,
+    ExportFormat,
+    ExportProgress,
+    ExportStyle,
+    export_animation,
+    save_png,
+    save_svg,
+)
 from .grid import GridViewport, draw_grid
 from .history import HistoryPlayback
 from .image import (
@@ -163,7 +171,7 @@ if TYPE_CHECKING:
         windows_demo,
     )
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __valid_demos__ = [
     "water_demo",
     "smoke_demo",
@@ -253,6 +261,8 @@ __all__ = [
     "RippleEffect",
     "RippleMetric",
     "ExportFormat",
+    "ExportCancelled",
+    "ExportProgress",
     "ExportStyle",
     "export_animation",
     "save_png",

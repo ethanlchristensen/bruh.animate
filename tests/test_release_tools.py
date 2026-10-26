@@ -277,7 +277,8 @@ def test_release_requires_tag_and_all_gates_before_privileged_upload():
     assert jobs["publish"]["permissions"]["id-token"] == "write"
     assert jobs["publish"]["environment"]["name"] == "pypi"
     upload = next(
-        step for step in jobs["publish"]["steps"]
+        step
+        for step in jobs["publish"]["steps"]
         if step.get("uses", "").startswith("pypa/gh-action-pypi-publish@")
     )
     assert "password" not in upload["with"]

@@ -65,7 +65,9 @@ cross-cutting changes. Use fake clocks and recording Screens for deterministic
 playback tests. Stub physical audio and avoid opening real terminals in automated
 tests. Keep resource-ownership/process tests meaningful. Label native terminal,
 hardware-audio and platform checks accurately; mocked tests do not establish
-hardware support. CI runs Python 3.13 on Linux, Windows and macOS.
+hardware support. CI runs Python 3.13 on Linux, Windows and macOS for source changes and every release.
+Documentation-only edits skip the matrix through job conditions, not workflow path
+filters; retain required-check results and full validation for release refs.
 
 For a complete local release check, run `uv run --locked python publish.py --check`.
 It also builds fresh archives and checks package metadata with Twine. Source and

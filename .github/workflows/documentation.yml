@@ -15,7 +15,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      full: ${{ steps.scope.outputs.full }}
+      docs: ${{ steps.scope.outputs.docs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select checks from changed files
+        id: scope
+        env:
+          CI_FULL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: python scripts/ci_scope.py
   build:
+    needs: changes
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.docs == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

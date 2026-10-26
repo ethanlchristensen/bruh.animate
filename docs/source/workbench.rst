@@ -16,6 +16,25 @@ excluded. Only one preview is owned at a time. Replacements close before the nex
 starts, selection is applied during update, and resizing retains current state.
 The seed is reapplied when selecting a fresh preview, so comparisons are repeatable.
 
+Press ``/`` to search names/descriptions and Enter to apply the filter; ``c``
+cycles categories. Search can return zero results; press ``/`` again to change it.
+Press ``e`` to edit a setting as ``FIELD=JSON`` (for example ``wind=0.6``).
+Tab cycles fields, Ctrl+U clears the input, Enter applies, and Escape cancels.
+Validated edits restart only the selected preview; invalid values leave it intact.
+Boolean and tuple values use JSON, such as ``true`` or ``[1, 2, 3]``.
+
+Press ``s`` to save resolved settings to ``preview-EFFECT-PRESET.json`` in the
+current directory. Defaults use ``custom`` in the filename. ``--output-dir``
+chooses an existing folder. Existing files are protected; save failures appear
+in the browser status line. Press ``x`` to close the preview, restore the terminal,
+then export an MP4 there with the same basename. ``--export-duration 5`` controls
+the clip length in seconds. It recreates the selected settings/seed, rather than
+recording the live screen. Audio previews cannot use this virtual-time export.
+
+Ordinary effect startup, update and resize failures appear in the preview;
+navigation remains available after successful child cleanup. Cleanup failures and
+draw errors propagate to Player for terminal restoration. Ctrl+C is not swallowed.
+
 Save and reuse settings
 -------------------------
 
@@ -76,3 +95,20 @@ API
 
 .. automodule:: bruhanimate.browser
    :members:
+
+Setup diagnostics
+------------------
+
+Run ``bruhanimate doctor`` for a readable setup report, or ``bruhanimate doctor
+--json`` for machine-readable output. It reports Python and package versions,
+stdout terminal/encoding information, color environment hints, and availability
+of optional export and audio modules, with install commands for missing tools.
+It does not open a terminal, enumerate audio devices, start workers or run FFmpeg.
+Detected modules and environment hints do not establish actual hardware support.
+
+.. code-block:: python
+
+   from bruhanimate.doctor import diagnose
+
+   report = diagnose()
+   assert "available" in report and "limits" in report

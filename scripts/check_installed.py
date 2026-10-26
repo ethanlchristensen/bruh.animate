@@ -22,6 +22,11 @@ def main() -> None:
     assert version("bruhanimate") == package.__version__
     assert (installed.parent / "py.typed").is_file()
     assert all(hasattr(package, name) for name in package.__all__)
+    from bruhanimate.doctor import diagnose
+
+    assert "packages" in diagnose()
+    rgb = package.TextStyle(foreground="#010203", enabled=True)._cell("x")
+    assert "38;2;1;2;3" in rgb
     assert package.get_theme("high_contrast").export_style().background == (0, 0, 0)
     values = []
     tween = package.Tween(values.append, 0, 1)
@@ -141,7 +146,7 @@ def main() -> None:
         package.Layer(
             package.ImageEffect("AB", x=0, y=0),
             mask=package.ImageMask("# ", x=0, y=0),
-            style=package.TextStyle(foreground=231),
+            style=package.TextStyle(foreground=231, enabled=True),
             preserve_background=True,
         )
     )

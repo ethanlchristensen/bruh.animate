@@ -22,7 +22,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      full: ${{ steps.scope.outputs.full }}
+      docs: ${{ steps.scope.outputs.docs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.sha }}
+      - name: Select checks from changed files
+        id: scope
+        env:
+          CI_FULL: ${{ inputs.ref != '' || github.event_name == 'workflow_dispatch' }}
+        run: python scripts/ci_scope.py
   lint:
+    needs: changes
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.full == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -44,6 +63,8 @@ jobs:
       - run: uv run --no-sync python scripts/release_check.py
 
   tests:
+    needs: changes
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.full == 'true')
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -83,6 +104,8 @@ jobs:
           retention-days: 14
 
   package:
+    needs: changes
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.full == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

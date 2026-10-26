@@ -5,14 +5,16 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import sys
 from collections.abc import Sequence
-from dataclasses import MISSING, fields, is_dataclass, replace
+from dataclasses import MISSING, fields, is_dataclass
 from typing import get_origin, get_type_hints
 
 from .bruheffect.registry import EffectEntry, effect_registry
 from .capture import record
 from .config import EffectConfig
-from .export import ExportStyle, export_animation
+from .config import resolve_overrides as _settings
+from .export import ExportCancelled, ExportProgress, ExportStyle, export_animation
 from .player import play
 
 
@@ -43,6 +45,12 @@ def _parser() -> argparse.ArgumentParser:
     )
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("list", help="List available effects and descriptions")
+    doctor = commands.add_parser(
+        "doctor", help="Check setup without opening terminals or devices"
+    )
+    doctor.add_argument(
+        "--json", action="store_true", help="Emit machine-readable diagnostics"
+    )
     browser = commands.add_parser(
         "browse", help="Browse live effects and presets with arrow keys"
     )
@@ -51,6 +59,17 @@ def _parser() -> argparse.ArgumentParser:
         "--audio", action="store_true", help="Include previews that open audio capture"
     )
     browser.add_argument("--frames", type=_count)
+    browser.add_argument(
+        "--output-dir",
+        default=".",
+        help="Existing folder for saved presets and exports",
+    )
+    browser.add_argument(
+        "--export-duration",
+        type=_rate,
+        default=5,
+        help="Preview export length in seconds (default: 5)",
+    )
     for command, description in (
         ("presets", "Show preset names and their settings"),
         ("info", "Show an effect's settings, defaults, ranges and presets"),
@@ -78,6 +97,15 @@ def _parser() -> argparse.ArgumentParser:
                 help="Replace an existing output file",
             )
         if command == "export":
+            progress = sub.add_mutually_exclusive_group()
+            progress.add_argument(
+                "--progress",
+                action="store_true",
+                help="Show progress even when stderr is redirected",
+            )
+            progress.add_argument(
+                "--quiet", action="store_true", help="Suppress progress"
+            )
             sub.add_argument("--font", help="Local TrueType/OpenType font path")
             sub.add_argument("--font-size", type=_count, default=16)
             sub.add_argument("--cell-width", type=_count, default=10)
@@ -177,50 +205,42 @@ def _print_info(entry: EffectEntry) -> None:
     _print_presets(entry)
 
 
-def _settings(
-    entry: EffectEntry,
-    preset: str | None,
-    assignments: list[str],
-    base: object | None = None,
-) -> object | None:
-    selected = effect_registry.resolve_settings(
-        entry.name, preset=preset, settings=base
-    )
-    if not assignments:
-        return selected
-    cls = entry.settings_cls
-    if cls is None or not is_dataclass(cls):
-        raise ValueError(
-            f"Effect '{entry.name}' does not accept dataclass setting overrides"
+class _ExportReporter:
+    """Throttled stderr progress; never mixes diagnostics with file/stdout data."""
+
+    def __init__(self) -> None:
+        self.last = -1.0
+
+    def __call__(self, progress: ExportProgress) -> None:
+        if progress.phase == "render" and progress.elapsed_seconds - self.last < 0.25:
+            return
+        self.last = progress.elapsed_seconds
+        total = f"/{progress.total_frames}" if progress.total_frames is not None else ""
+        eta = (
+            f", render ETA {progress.remaining_seconds:.1f}s"
+            if progress.remaining_seconds is not None
+            else ""
         )
-    hints = get_type_hints(cls)
-    changes = {}
-    for assignment in assignments:
-        key, separator, raw = assignment.partition("=")
-        if not separator or key not in hints:
-            raise ValueError(
-                f"Expected FIELD=VALUE; available settings: {', '.join(hints)}"
-            )
-        if key in changes:
-            raise ValueError(f"Setting '{key}' was supplied more than once")
-        try:
-            value = json.loads(raw)
-        except json.JSONDecodeError:
-            value = raw
-        if get_origin(hints[key]) is tuple and isinstance(value, list):
-            value = tuple(value)
-        changes[key] = value
-    # replace preserves all selected preset fields and invokes dataclass validation.
-    if selected is None:
-        return cls(**changes)
-    assert is_dataclass(selected) and not isinstance(selected, type)
-    return replace(selected, **changes)
+        print(
+            f"{progress.phase}: {progress.frames}{total} frames, {progress.elapsed_seconds:.1f}s elapsed{eta}",
+            file=sys.stderr,
+        )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the CLI. Discovery never opens a Screen or constructs an effect."""
     parser = _parser()
     args = parser.parse_args(argv)
+    if args.command == "doctor":
+        from .doctor import diagnose
+
+        report = diagnose()
+        if args.json:
+            print(json.dumps(report, indent=2))
+        else:
+            for key, value in report.items():
+                print(f"{key.replace('_', ' ')}: {value}")
+        return 0
     if args.command == "browse":
         from .browser import EffectBrowser
 
@@ -231,6 +251,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 size=(buffer.width(), buffer.height()),
                 seed=args.seed,
                 include_audio=args.audio,
+                output_dir=args.output_dir,
+                export_duration=args.export_duration,
             )
             selected.append(preview)
             return preview
@@ -245,6 +267,33 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         if selected:
             print(selected[0].command)
+            request = selected[0].export_request
+            if request is not None:
+                path = selected[0].output_path(".mp4")
+                try:
+                    export_animation(
+                        path,
+                        request.effect,
+                        settings=request.settings,
+                        width=request.width,
+                        height=request.height,
+                        fps=request.fps,
+                        updates_per_second=request.updates_per_second,
+                        duration=request.duration,
+                        on_progress=_ExportReporter(),
+                    )
+                except (KeyboardInterrupt, ExportCancelled):
+                    print("Export cancelled; destination unchanged.", file=sys.stderr)
+                    return 130
+                except (
+                    OSError,
+                    ValueError,
+                    TypeError,
+                    RuntimeError,
+                    ImportError,
+                ) as error:
+                    parser.error(str(error))
+                print(f"Saved {path}")
         return 0
     if args.command == "list":
         for name in effect_registry.names():
@@ -312,12 +361,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                         frames=args.frames,
                         duration=args.duration,
                         overwrite=args.overwrite,
+                        on_progress=_ExportReporter()
+                        if not args.quiet and (args.progress or sys.stderr.isatty())
+                        else None,
                         style=ExportStyle(
                             font=args.font,
                             font_size=args.font_size,
                             cell_size=(args.cell_width, args.cell_height),
                         ),
                     )
+            except (KeyboardInterrupt, ExportCancelled):
+                print("Export cancelled; destination unchanged.", file=sys.stderr)
+                return 130
             except (
                 OSError,
                 KeyError,
