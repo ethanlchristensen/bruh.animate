@@ -33,6 +33,9 @@ Start here
 
    getting_started
    discovery
+   workbench
+   animation_tools
+   solver_tools
    natural_effects
    capture
    exports

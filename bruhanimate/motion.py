@@ -4,11 +4,11 @@ from collections.abc import Sequence
 from math import floor, hypot
 from typing import Literal
 
+from ._clock import _CycleClock
+from ._validation import _seconds
 from .bruhutil import Buffer
 from .grid import GridViewport, _glyph
-from .image import _CycleClock
 from .resize import _size
-from .scene import _seconds
 from .styling import TextStyle
 
 Cell = tuple[int, int]

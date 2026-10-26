@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryFile
-from typing import Literal
+from typing import Literal, cast
 from xml.etree import ElementTree as ET
 
 from .capture import Frame, _player
@@ -39,7 +39,8 @@ class ExportStyle:
     """Pixel cell size, font and default RGB colors for exported terminal cells.
 
     Raster exports use Pillow's bundled font unless font names a local TrueType/
-    OpenType file. Each glyph is centered and clipped to its own cell; font_size
+    OpenType file. Glyph advances are centered horizontally; every row uses a
+    shared font baseline. Glyphs are clipped to their own cells; font_size
     is positive pixels. SVG uses the viewer's monospace font (no font embedding).
     Terminal theme colors are not read; ANSI palette colors use the xterm palette.
     """
@@ -309,8 +310,12 @@ class _Rasterizer:
         self.font = (
             ImageFont.truetype(os.fspath(style.font), style.font_size)
             if style.font is not None
-            else ImageFont.load_default(size=style.font_size)
+            # Supplying size selects Pillow's scalable default font.
+            else cast(ImageFont.FreeTypeFont, ImageFont.load_default(size=style.font_size))
         )
+        ascent, descent = self.font.getmetrics()
+        # A terminal row has one baseline, including punctuation and descenders.
+        self.baseline = (style.cell_size[1] - ascent - descent) // 2 + ascent
         self._tile = lru_cache(maxsize=4096)(self._make_tile)
 
     def _make_tile(self, value: str):
@@ -321,12 +326,12 @@ class _Rasterizer:
         tile = self.Image.new("RGB", (cw, ch), bg)
         draw = self.ImageDraw.Draw(tile)
         if glyph != " ":
-            left, top, right, bottom = draw.textbbox((0, 0), glyph, font=self.font)
-            origin = ((cw - (right - left)) / 2 - left, (ch - (bottom - top)) / 2 - top)
+            origin = ((cw - self.font.getlength(glyph)) / 2, self.baseline)
             draw.text(
                 origin,
                 glyph,
                 font=self.font,
+                anchor="ls",
                 fill=fg,
                 stroke_width=int(bold),
                 stroke_fill=fg,

@@ -28,8 +28,9 @@ return types and rejection of mismatched presets/settings.
 
 Publishing requires a matching vMAJOR.MINOR.PATCH tag on a main-branch commit;
 normal merges do not publish. Package upload uses verified artifacts in a separate
-job. Trusted Publishing is used when PYPI_TOKEN is absent; an existing token
-continues to work. Pages deploys only from main, while PRs build docs for review.
+job using Trusted Publishing with attestations. Register the bruhanimate
+publisher as described in :doc:`releasing`. Pages deploys only from main, while
+PRs build docs for review.
 
 The helper previews by default and requires explicit write/commit/push/PR flags.
 It never creates a release tag. Follow :doc:`releasing` for the dev-to-main-to-tag

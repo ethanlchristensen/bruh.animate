@@ -275,6 +275,13 @@ def test_release_requires_tag_and_all_gates_before_privileged_upload():
     assert set(jobs["publish"]["needs"]) == {"verify", "checks", "docs"}
     assert jobs["checks"]["with"]["ref"] == "${{ needs.verify.outputs.commit }}"
     assert jobs["publish"]["permissions"]["id-token"] == "write"
+    assert jobs["publish"]["environment"]["name"] == "pypi"
+    upload = next(
+        step for step in jobs["publish"]["steps"]
+        if step.get("uses", "").startswith("pypa/gh-action-pypi-publish@")
+    )
+    assert "password" not in upload["with"]
+    assert upload["with"]["attestations"] == "true"
     assert not any(
         "run" in step or "checkout" in step.get("uses", "")
         for step in jobs["publish"]["steps"]

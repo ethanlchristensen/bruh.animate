@@ -86,6 +86,7 @@ def validate(root: Path = ROOT) -> None:
     command([uv, "sync", "--locked", "--group", "docs", "--extra", "export"], root=root)
     for args in (
         ["ruff", "check", "."],
+        ["mypy"],
         ["pytest"],
         ["python", "scripts/check_examples.py"],
         ["python", "scripts/build_docs.py"],

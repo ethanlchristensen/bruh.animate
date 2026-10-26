@@ -5,13 +5,14 @@ from __future__ import annotations
 from collections.abc import Callable
 from math import floor, isfinite
 
+from ._validation import _seconds
 from .bruheffect.base_effect import BaseEffect
 from .bruhutil.bruhffer import Buffer
 from .grid import _glyph
 from .keyboard import FocusTarget, _set_visible
 from .player import Animation
 from .resize import _resize, _size
-from .scene import Layer, Scene, _seconds
+from .scene import Layer, Scene
 
 
 def _pair(value: tuple[float, float], name: str) -> tuple[float, float]:

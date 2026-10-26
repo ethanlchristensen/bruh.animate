@@ -3,11 +3,11 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from ._clock import _CycleClock
+from ._validation import _seconds
 from .bruhutil import Buffer
-from .image import _CycleClock
 from .player import Animation
 from .resize import _resize, _size
-from .scene import _seconds
 
 
 @dataclass(frozen=True)

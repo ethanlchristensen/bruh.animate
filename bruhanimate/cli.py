@@ -11,6 +11,8 @@ from typing import get_origin, get_type_hints
 
 from .bruheffect.registry import EffectEntry, effect_registry
 from .capture import record
+from .config import EffectConfig
+from .export import ExportStyle, export_animation
 from .player import play
 
 
@@ -41,11 +43,21 @@ def _parser() -> argparse.ArgumentParser:
     )
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("list", help="List available effects and descriptions")
+    browser = commands.add_parser(
+        "browse", help="Browse live effects and presets with arrow keys"
+    )
+    browser.add_argument("--seed", type=_count, default=42)
+    browser.add_argument(
+        "--audio", action="store_true", help="Include previews that open audio capture"
+    )
+    browser.add_argument("--frames", type=_count)
     for command, description in (
         ("presets", "Show preset names and their settings"),
         ("info", "Show an effect's settings, defaults, ranges and presets"),
         ("play", "Play an effect; q, Escape or Ctrl+C quits"),
         ("record", "Record an asciicast v2 file headlessly using virtual time"),
+        ("export", "Export GIF or MP4 headlessly (requires bruhanimate[export])"),
+        ("save-preset", "Save resolved settings and playback options as JSON"),
     ):
         sub = commands.add_parser(command, help=description, description=description)
         sub.add_argument("effect", choices=effect_registry.names())
@@ -56,8 +68,8 @@ def _parser() -> argparse.ArgumentParser:
                 default="raise",
                 help="Resize policy: raise an error (default) or retain state and reflow",
             )
-        if command == "record":
-            sub.add_argument("output", help="Output .cast path")
+        if command in ("record", "export", "save-preset"):
+            sub.add_argument("output", help="Output file path")
             sub.add_argument("--width", type=_count, default=80)
             sub.add_argument("--height", type=_count, default=24)
             sub.add_argument(
@@ -65,7 +77,15 @@ def _parser() -> argparse.ArgumentParser:
                 action="store_true",
                 help="Replace an existing output file",
             )
-        if command in ("play", "record"):
+        if command == "export":
+            sub.add_argument("--font", help="Local TrueType/OpenType font path")
+            sub.add_argument("--font-size", type=_count, default=16)
+            sub.add_argument("--cell-width", type=_count, default=10)
+            sub.add_argument("--cell-height", type=_count, default=20)
+        if command in ("play", "record", "export", "save-preset"):
+            sub.add_argument(
+                "--config", help="Saved JSON preset; explicit flags override its values"
+            )
             sub.add_argument(
                 "--seed",
                 type=_count,
@@ -77,7 +97,7 @@ def _parser() -> argparse.ArgumentParser:
             sub.add_argument(
                 "--fps",
                 type=_rate,
-                default=30,
+                default=argparse.SUPPRESS,
                 help="Presentation frames/second (default: 30)",
             )
             sub.add_argument(
@@ -102,6 +122,16 @@ def _parser() -> argparse.ArgumentParser:
                 metavar="FIELD=VALUE",
                 help="Override a setting; values are JSON or text (repeatable). Use 'info EFFECT' for fields.",
             )
+            # Distinguish omitted options from explicit flags when loading JSON.
+            for action in sub._actions:
+                if action.dest in (
+                    "updates_per_second",
+                    "frames",
+                    "duration",
+                    "width",
+                    "height",
+                ):
+                    action.default = argparse.SUPPRESS
     return parser
 
 
@@ -148,9 +178,14 @@ def _print_info(entry: EffectEntry) -> None:
 
 
 def _settings(
-    entry: EffectEntry, preset: str | None, assignments: list[str]
+    entry: EffectEntry,
+    preset: str | None,
+    assignments: list[str],
+    base: object | None = None,
 ) -> object | None:
-    selected = effect_registry.resolve_settings(entry.name, preset=preset)
+    selected = effect_registry.resolve_settings(
+        entry.name, preset=preset, settings=base
+    )
     if not assignments:
         return selected
     cls = entry.settings_cls
@@ -176,13 +211,41 @@ def _settings(
             value = tuple(value)
         changes[key] = value
     # replace preserves all selected preset fields and invokes dataclass validation.
-    return replace(selected, **changes) if selected is not None else cls(**changes)
+    if selected is None:
+        return cls(**changes)
+    assert is_dataclass(selected) and not isinstance(selected, type)
+    return replace(selected, **changes)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the CLI. Discovery never opens a Screen or constructs an effect."""
     parser = _parser()
     args = parser.parse_args(argv)
+    if args.command == "browse":
+        from .browser import EffectBrowser
+
+        selected: list[EffectBrowser] = []
+
+        def build(buffer):
+            preview = EffectBrowser(
+                size=(buffer.width(), buffer.height()),
+                seed=args.seed,
+                include_audio=args.audio,
+            )
+            selected.append(preview)
+            return preview
+
+        play(
+            effect_factory=build,
+            event_handler=lambda event: selected[0].handle_event(event),
+            frames=args.frames,
+            fps=30,
+            updates_per_second=30,
+            on_resize="resize",
+        )
+        if selected:
+            print(selected[0].command)
+        return 0
     if args.command == "list":
         for name in effect_registry.names():
             print(f"{name}: {effect_registry.get(name).description}")
@@ -194,12 +257,77 @@ def main(argv: Sequence[str] | None = None) -> int:
         _print_info(entry)
     else:
         try:
-            settings = _settings(entry, args.preset, args.set)
+            config = (
+                EffectConfig.load(args.config)
+                if args.config
+                else EffectConfig(entry.name)
+            )
+            if config.effect != entry.name:
+                raise ValueError(f"Config is for {config.effect!r}, not {entry.name!r}")
+            for option in (
+                "fps",
+                "updates_per_second",
+                "frames",
+                "duration",
+                "width",
+                "height",
+            ):
+                if not hasattr(args, option):
+                    setattr(args, option, getattr(config, option))
+            # An explicit named preset replaces the saved settings selection.
+            settings = _settings(
+                entry,
+                args.preset,
+                args.set,
+                config.settings if args.preset is None else None,
+            )
             settings = effect_registry.resolve_settings(
                 entry.name, settings=settings, preset=args.preset, seed=args.seed
             )
-        except (KeyError, TypeError, ValueError) as error:
+        except (OSError, KeyError, TypeError, ValueError) as error:
             parser.error(str(error))
+        if args.command in ("save-preset", "export"):
+            try:
+                if args.command == "save-preset":
+                    EffectConfig(
+                        entry.name,
+                        settings,
+                        args.fps,
+                        args.updates_per_second,
+                        args.frames,
+                        args.duration,
+                        args.width,
+                        args.height,
+                    ).save(args.output, overwrite=args.overwrite)
+                else:
+                    export_animation(
+                        args.output,
+                        entry.name,
+                        settings=settings,
+                        preset=args.preset,
+                        width=args.width,
+                        height=args.height,
+                        fps=args.fps,
+                        updates_per_second=args.updates_per_second,
+                        frames=args.frames,
+                        duration=args.duration,
+                        overwrite=args.overwrite,
+                        style=ExportStyle(
+                            font=args.font,
+                            font_size=args.font_size,
+                            cell_size=(args.cell_width, args.cell_height),
+                        ),
+                    )
+            except (
+                OSError,
+                KeyError,
+                TypeError,
+                ValueError,
+                RuntimeError,
+                ImportError,
+            ) as error:
+                parser.error(str(error))
+            return 0
         if args.command == "record":
             try:
                 record(

@@ -15,6 +15,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\Z")
 REQUIRED = {
+    "_clock.py",
+    "_validation.py",
+    "background.py",
+    "browser.py",
+    "cache.py",
+    "config.py",
+    "history.py",
+    "themes.py",
+    "tween.py",
     "__init__.py",
     "player.py",
     "playback.py",

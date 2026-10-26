@@ -37,6 +37,9 @@ frozen dataclass with discoverable ``cell_size``, ``font_size``, ``font``,
 ``foreground``, and ``background`` fields. Dimensions and font size are pixels;
 colors are RGB integer tuples. Raster output defaults to Pillow's bundled font.
 Pass a local TrueType/OpenType font path for your preferred monospace font.
+Raster text uses a shared baseline, preserving punctuation and descending letters.
+The terminal's font is not detected automatically; ``font_size`` and ``cell_size``
+control the exported pixels independently of your terminal or video player's zoom.
 SVG uses the viewer's monospace font and does not embed that file.
 
 Animation

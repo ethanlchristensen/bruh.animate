@@ -16,11 +16,6 @@ Turn a simulation, drawing function, or stream of solver snapshots into an ASCII
 animation. One player handles timing, input, changed-cell rendering, and terminal
 cleanup, so your code can concentrate on what happens and how it looks.
 
-For repeatable CPU measurements, run
-`uv run --locked python scripts/benchmark_rendering.py --output benchmark.json`.
-See the [rendering performance guide](docs/source/performance.rst) for methodology
-and interpretation; these measurements exclude native terminal I/O.
-
 - **Built-in effects:** snow, fire, rain, stars, Matrix, cellular automata, and more.
 - **Layered scenes:** combine animated backgrounds, text, and custom drawings.
 - **Resizable demos:** all demo `run()` entry points default to
@@ -31,6 +26,10 @@ and interpretation; these measurements exclude native terminal I/O.
 
 > **Version 1 is a breaking release.** The old renderer hierarchy is replaced by
 > `play`, `Scene`, and `Playback`. See the [migration guide](https://ethanlchristensen.github.io/bruh.animate/migration.html).
+
+| Plasma | Fire | Terrain |
+| --- | --- | --- |
+| ![Seeded plasma preview](docs/source/_static/gallery-plasma.svg) | ![Seeded fire preview](docs/source/_static/gallery-fire.svg) | ![Seeded terrain preview](docs/source/_static/gallery-terrain.svg) |
 
 ## Quick start
 
@@ -43,34 +42,6 @@ python -m pip install "bruhanimate>=1,<2"
 For unreleased code, use the [source checkout](#development). Optional audio
 capture dependencies are available with `python -m pip install "bruhanimate[audio]>=1,<2"`.
 
-From a checkout, run `uv run --locked --extra audio python -m bruhanimate.demos.audio_demo`
-while music is playing. Left/right arrows select the previous/next visualization
-with no automatic cycling; q quits. See the
-[audio demo guide](docs/source/demos/audio_demo.rst).
-
-The audio demo plays inside the original computer artwork with snow behind it;
-press **C** to cycle classic, expanded artwork, and a rectangular computer.
-Expanded inserts middle sections to give the monitor more room while keeping
-the original corners and keyboard. Small terminals use the rectangular frame
-automatically. Arrow keys still select modes, and resize/style changes preserve
-capture and snow. Use `run(computer="expanded")` from
-`bruhanimate.demos.audio_demo` to start with the larger artwork.
-
-The audio demo starts with **Objects**, a field of blocks across the monitor:
-bass grows them from 3×3 cells until they touch and fill the viewport, mids move
-them within the remaining space, treble adds sparkles, and volume sets brightness.
-The seven supported modes are `objects`, `tiles`, `glow`, `bars`, `mirror`,
-`waveform`, and `spectrum`. Tiles lights frequency blocks across the screen; Glow
-blends bass, mids, and treble into moving pools of color. `AudioSettings` exposes typed mode choices,
-`sensitivity`, `smoothing`, `noise_floor`, and `bar_gain`; `effects.audio.presets()` lists presets.
-Bars/Mirror default to `bar_gain=2` for taller bars; use `1` for the original
-height or increase it for more screen coverage. The demo also fills column gaps.
-Frequency bands sum energy so quieter mids and diffuse treble remain visible
-beside bass. The default `noise_floor=-65` retains quiet detail; raise it to
-`-55` or `-40` to suppress more background noise.
-Experimental modes were removed from the API—see the
-[audio migration notes](docs/source/bruheffect/audio_effect.rst#removed-modes-in-1-3).
-
 Save this as `animation.py` and run `python animation.py` in a terminal:
 
 ```python
@@ -82,6 +53,31 @@ play("snow", preset="light", fps=60, updates_per_second=30)
 Press **q**, **Escape**, or **Ctrl+C** to quit and restore the terminal.
 `fps` controls presentation; `updates_per_second` controls simulation ticks.
 Set `frames=120` to limit the number of presented frames.
+
+## Browse, save, and export
+
+```sh
+bruhanimate browse
+bruhanimate save-preset snow snow.json --preset light --seed 42 --duration 5
+bruhanimate play snow --config snow.json --set wind=0.4
+# Requires pip install "bruhanimate[export]":
+bruhanimate export snow snow.mp4 --config snow.json
+```
+
+The browser previews effects/presets with arrow keys and prints copyable Python
+when you quit. Saved JSON stores validated settings, seeds, playback rates and
+capture dimensions. Explicit CLI flags override saved options. See the
+[browser/configuration guide](docs/source/workbench.rst).
+
+`Tween` adds callback-based easing for positions and effect parameters; `Theme`
+shares semantic colors across widgets, panels and exports. `CachedAnimation`
+reuses drawing only when you explicitly control invalidation. See
+[animation tools](docs/source/animation_tools.rst) for standalone examples.
+
+`HistoryPlayback` adds bounded backward stepping and bookmarks.
+`BackgroundPlayback` keeps cooperative slow producers off the Player thread with
+a bounded queue and explicit cancellation. Ordinary `Playback` still retains one
+snapshot. See [solver tools](docs/source/solver_tools.rst) for ownership and limits.
 
 ## Discover effects and presets
 
@@ -413,7 +409,9 @@ See the [motion guide](docs/source/motion.rst) for timing and composition.
 
 `save_svg(frame, path)` needs no extra dependencies. Install
 `pip install "bruhanimate[export]"` for `save_png` and `export_animation` (GIF/MP4).
-`ExportStyle` exposes font, cell size, and RGB colors; `ExportFormat` exposes the
+`ExportStyle` exposes font, cell size, and RGB colors. Raster text uses a shared
+baseline; pass a font file explicitly to match your terminal's font.
+`ExportFormat` exposes the
 animation formats. MP4 uses the bundled FFmpeg executable on supported platforms.
 
 ```python
@@ -560,6 +558,36 @@ is needed. Smoke uses an artistic flow field and cloth uses traveling waves.
 See the [natural effects guide](docs/source/natural_effects.rst) for controls,
 custom cloth art, units, and resize behavior.
 
+## Optional audio visualizations
+
+From a checkout, run `uv run --locked --extra audio python -m bruhanimate.demos.audio_demo`
+while music is playing. Left/right arrows select the previous/next visualization
+with no automatic cycling; q quits. See the
+[audio demo guide](docs/source/demos/audio_demo.rst).
+
+The audio demo plays inside the original computer artwork with snow behind it;
+press **C** to cycle classic, expanded artwork, and a rectangular computer.
+Expanded inserts middle sections to give the monitor more room while keeping
+the original corners and keyboard. Small terminals use the rectangular frame
+automatically. Arrow keys still select modes, and resize/style changes preserve
+capture and snow. Use `run(computer="expanded")` from
+`bruhanimate.demos.audio_demo` to start with the larger artwork.
+
+The audio demo starts with **Objects**, a field of blocks across the monitor:
+bass grows them from 3×3 cells until they touch and fill the viewport, mids move
+them within the remaining space, treble adds sparkles, and volume sets brightness.
+The seven supported modes are `objects`, `tiles`, `glow`, `bars`, `mirror`,
+`waveform`, and `spectrum`. Tiles lights frequency blocks across the screen; Glow
+blends bass, mids, and treble into moving pools of color. `AudioSettings` exposes typed mode choices,
+`sensitivity`, `smoothing`, `noise_floor`, and `bar_gain`; `effects.audio.presets()` lists presets.
+Bars/Mirror default to `bar_gain=2` for taller bars; use `1` for the original
+height or increase it for more screen coverage. The demo also fills column gaps.
+Frequency bands sum energy so quieter mids and diffuse treble remain visible
+beside bass. The default `noise_floor=-65` retains quiet detail; raise it to
+`-55` or `-40` to suppress more background noise.
+Experimental modes were removed from the API—see the
+[audio migration notes](docs/source/bruheffect/audio_effect.rst#removed-modes-in-1-3).
+
 ## Explore the demos
 
 ```sh
@@ -596,6 +624,11 @@ for terminal and optional audio validation.
 The terminal demo is a pipe-based command console, not a PTY emulator.
 
 ## Development
+
+For repeatable CPU measurements, run
+`uv run --locked python scripts/benchmark_rendering.py --output benchmark.json`.
+See the [rendering performance guide](docs/source/performance.rst) for methodology
+and interpretation; these measurements exclude native terminal I/O.
 
 Use Python 3.13 and uv 0.13.4, pinned in `pyproject.toml`:
 

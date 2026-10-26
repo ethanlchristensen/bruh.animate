@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from bruhanimate import (
     Animation,
     Buffer,
+    CachedAnimation,
     CallbackEffect,
     FramePresenter,
     Panel,
@@ -165,6 +166,8 @@ def main() -> None:
             record(
                 f"{count}_small_panels", lambda b, count=count: panels(count, b), size
             )
+    for size in ((80, 24), (240, 80)):
+        record("16_cached_panels", lambda b: CachedAnimation(panels(16, b)), size)
     record(
         "fire_15ups_60fps",
         lambda b: effect_registry.create("fire", b, " ", seed=42),

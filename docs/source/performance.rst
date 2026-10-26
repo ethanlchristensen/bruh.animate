@@ -91,6 +91,11 @@ produce no terminal output after the initial frame, although composition still
 runs. Lowering an effect's update rate reduces simulation work without reducing
 presentation frequency; see :doc:`player` and :doc:`composition`.
 
+The harness also compares sixteen static panels with ``CachedAnimation`` at
+80x24 and 240x80. This explicitly caches the whole static composition and consumes
+one extra Buffer. Dynamic content requires application invalidation; it is never
+automatically cached. Compare draw medians and total CPU costs on the same machine.
+
 
 Native terminal benchmark
 -------------------------

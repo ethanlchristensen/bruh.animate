@@ -38,12 +38,10 @@ In GitHub settings:
 - Configure the `pypi` environment to allow release tags. Add reviewers if desired.
   The separate `github-pages` environment handles documentation deployment.
 
-Choose one package-upload authentication method:
-
-| Method | Configuration |
-| --- | --- |
-| Trusted Publishing | In PyPI → bruhanimate → Manage → Publishing, add the GitHub identity below. Remove `PYPI_TOKEN` from repository/environment secrets when ready to use OIDC. |
-| Existing API token | Keep a valid, project-scoped `PYPI_TOKEN` in GitHub repository secrets or the `pypi` environment. It takes precedence over OIDC. |
+Package uploads use Trusted Publishing (OIDC) with attestations. In PyPI →
+bruhanimate → Manage → Publishing, add the GitHub identity below before the next
+release. Each PyPI project needs its own publisher; configuring bruhcolor does
+not configure bruhanimate.
 
 Trusted Publisher fields must match exactly:
 
@@ -55,9 +53,10 @@ Trusted Publisher fields must match exactly:
 | Workflow filename | `release.yml` |
 | Environment | `pypi` |
 
-An empty action password selects Trusted Publishing and enables attestations;
-token uploads disable attestations. Never put tokens in command arguments, source,
-or workflow inputs. These settings live in PyPI/GitHub and are not created by
+The workflow does not read `PYPI_TOKEN`; an existing secret cannot override OIDC.
+After confirming a successful Trusted Publishing release, remove the unused
+repository/environment secret and revoke the old PyPI token if no other workflow
+uses it. These settings live in PyPI/GitHub and are not created by
 committing the workflow. See the [PyPI setup instructions](https://docs.pypi.org/trusted-publishers/adding-a-publisher/)
 and [publishing action](https://github.com/pypa/gh-action-pypi-publish).
 
@@ -190,7 +189,7 @@ It resolves the commit SHA once and checks that exact commit throughout.
    each, and run isolated API smoke tests without editable checkout imports.
 4. **Document:** execute examples and build Sphinx with warnings treated as errors.
 5. **Publish:** download the verified package artifact into a separate job and
-   upload it to PyPI using the configured authentication.
+   upload it to PyPI using Trusted Publishing with attestations.
 6. **Release:** create or finish a GitHub release and attach the package archives.
 
 The publish job does not check out or execute project code. Build/test jobs have
@@ -244,7 +243,7 @@ such as the separate Advent of Code repository, to use the published version.
 | uv reports a stale lock | Run `uv lock` on dev and commit the result with the source change. Keep `--locked` checks enabled. |
 | Dependency update PRs fail before tests | Update the lockfile alongside metadata and resolve constraints together, such as Sphinx/Furo compatibility. |
 | Upload waits for approval | Check the `pypi` environment's reviewers and tag deployment rules. |
-| Upload authentication fails | Check the project-scoped token or the exact Trusted Publisher identity above. |
+| Upload authentication fails | Check the exact Trusted Publisher identity above in the bruhanimate PyPI project, including `release.yml` and the `pypi` environment. |
 | Docs fail on a fresh checkout | Read the first Sphinx warning; empty local folders are not tracked by Git. Keep warnings-as-errors enabled. |
 
 For a partial upload, prefer GitHub's **Re-run failed jobs** on the original

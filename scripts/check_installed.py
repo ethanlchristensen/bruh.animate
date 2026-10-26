@@ -22,6 +22,23 @@ def main() -> None:
     assert version("bruhanimate") == package.__version__
     assert (installed.parent / "py.typed").is_file()
     assert all(hasattr(package, name) for name in package.__all__)
+    assert package.get_theme("high_contrast").export_style().background == (0, 0, 0)
+    values = []
+    tween = package.Tween(values.append, 0, 1)
+    tween.start()
+    tween.update(1)
+    assert values == [0, 1] and tween.finished
+    tween.close()
+    history = package.HistoryPlayback([1, 2], lambda state, target: None)
+    history.start()
+    try:
+        history.update(0)
+        history.update(0.1)
+        history.back()
+        history.update(0)
+        assert history.state == 1 and history.position == 0
+    finally:
+        history.close()
     assert effects.snow.preset("light") == SnowSettings(intensity=0.005)
     assert "snow" in effects.names()
     for name in ("water", "smoke", "metaballs", "cloth", "terrain"):
@@ -66,6 +83,9 @@ def main() -> None:
     )
     assert isinstance(captured[0], package.Frame)
     with TemporaryDirectory() as directory:
+        config = package.EffectConfig("snow", package.SnowSettings(seed=42))
+        config_path = config.save(Path(directory) / "snow.json")
+        assert package.EffectConfig.load(config_path) == config
         svg = package.save_svg(captured[0], Path(directory) / "frame.svg")
         assert "<svg" in svg.read_text(encoding="utf-8")
     assert "routing_demo" in package.__valid_demos__

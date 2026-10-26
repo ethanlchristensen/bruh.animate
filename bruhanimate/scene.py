@@ -7,6 +7,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass, field
 from math import floor, isfinite
 
+from ._validation import _seconds
 from .bruhutil.bruhffer import Buffer
 from .grid import _glyph
 from .keyboard import _set_visible
@@ -73,13 +74,6 @@ class Layer:
             raise TypeError("max_catch_up must be an integer")
         if self.max_catch_up < 1:
             raise ValueError("max_catch_up must be positive")
-
-
-def _seconds(value: float, name: str) -> None:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise TypeError(f"{name} must be a number")
-    if not isfinite(value) or value < 0:
-        raise ValueError(f"{name} must be non-negative and finite")
 
 
 class Scene:

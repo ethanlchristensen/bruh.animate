@@ -8,6 +8,8 @@ from importlib import import_module
 from typing import TYPE_CHECKING
 
 from . import effects
+from .background import BackgroundPlayback
+from .browser import EffectBrowser
 from .bruheffect import (
     TWINKLE_SPEC,
     AudioEffect,
@@ -91,10 +93,13 @@ from .bruhutil import (
     get_image,
     text_to_image,
 )
+from .cache import CachedAnimation
 from .capture import Frame, capture, record
+from .config import EffectConfig
 from .effects import EffectName
 from .export import ExportFormat, ExportStyle, export_animation, save_png, save_svg
 from .grid import GridViewport, draw_grid
+from .history import HistoryPlayback
 from .image import (
     DissolveDirection,
     DissolveImageEffect,
@@ -129,6 +134,8 @@ from .player import (
 from .resize import Resizable, ResizePolicy
 from .scene import ImageEffect, Layer, Scene, TimedOverlay
 from .sequence import AnimationSequence, SequenceStep
+from .themes import Theme, ThemeName, ThemeRole, get_theme
+from .tween import Easing, Tween
 from .views import LogView, LogWrap, ScrollView
 from .widgets import (
     Label,
@@ -156,7 +163,7 @@ if TYPE_CHECKING:
         windows_demo,
     )
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __valid_demos__ = [
     "water_demo",
     "smoke_demo",
@@ -212,6 +219,18 @@ def __dir__():
 
 
 __all__ = [
+    "BackgroundPlayback",
+    "EffectBrowser",
+    "CachedAnimation",
+    "EffectConfig",
+    "HistoryPlayback",
+    "Theme",
+    "ThemeName",
+    "ThemeRole",
+    "get_theme",
+    "Easing",
+    "Tween",
+
     "nature_demo",
     "water_demo",
     "smoke_demo",

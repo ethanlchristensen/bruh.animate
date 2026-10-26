@@ -15,22 +15,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from __future__ import annotations
+
+from collections.abc import Iterator, Sequence
+from typing import Any, Self
+
 
 class Buffer:
     """
     Class for creating and managing a buffer
     """
 
-    def __init__(self, height, width):
+    def __init__(self, height: int, width: int) -> None:
         if height < 0 or width < 0:
             raise ValueError("Buffer dimensions must be non-negative")
         self._height = height
         self._width = width
         self._center = self._width // 2
         self._empty_line = [" " for _ in range(self._width)]
-        self.buffer = [self._empty_line[:] for _ in range(self._height)]
+        self.buffer: list[list[Any]] = [
+            self._empty_line[:] for _ in range(self._height)
+        ]
 
-    def get_buffer_changes(self, in_buf):
+    def get_buffer_changes(self, in_buf: Buffer) -> Iterator[tuple[int, int, Any]]:
         """
         Compare this buffer with the given buffer and yield differences.
 
@@ -51,7 +58,14 @@ class Buffer:
                 if self.buffer[y][x] != in_buf.buffer[y][x]:
                     yield y, x, in_buf.buffer[y][x]
 
-    def clear_buffer(self, x=0, y=0, w=None, h=None, val=" "):
+    def clear_buffer(
+        self,
+        x: int = 0,
+        y: int = 0,
+        w: int | None = None,
+        h: int | None = None,
+        val: Any = " ",
+    ) -> Self:
         """
         Clear a rectangle, clipped to the buffer bounds.
 
@@ -84,7 +98,7 @@ class Buffer:
 
         return self
 
-    def get_char(self, x, y):
+    def get_char(self, x: int, y: int) -> Any:
         """
         Get the character at the specified location.
 
@@ -98,7 +112,7 @@ class Buffer:
             return self.buffer[y][x]
         return None
 
-    def put_char(self, x, y, val, transparent=False):
+    def put_char(self, x: int, y: int, val: Any, transparent: bool = False) -> None:
         """
         Place a character at the specified location.
 
@@ -115,7 +129,9 @@ class Buffer:
                 elif not transparent:
                     self.buffer[y][x] = val
 
-    def put_at(self, x, y, text, transparent=False):
+    def put_at(
+        self, x: int, y: int, text: Sequence[Any], transparent: bool = False
+    ) -> None:
         """
         Place text starting at the specified location.
 
@@ -140,7 +156,9 @@ class Buffer:
                 if c != " ":
                     self.put_char(x + i, y, c)
 
-    def put_at_center(self, y, text, transparent=False):
+    def put_at_center(
+        self, y: int, text: Sequence[Any], transparent: bool = False
+    ) -> None:
         """
         Place text centered on the specified row.
 
@@ -159,7 +177,7 @@ class Buffer:
                 if c != " ":
                     self.put_char(x + i, y, c)
 
-    def scroll(self, shift):
+    def scroll(self, shift: int) -> None:
         """
         Scroll the buffer up or down by a specified number of lines.
 
@@ -179,7 +197,7 @@ class Buffer:
             for y in range(0, -shift):
                 self.buffer[y] = self._empty_line[:]
 
-    def shift_line(self, y, shift):
+    def shift_line(self, y: int, shift: int) -> None:
         """
         Shift the specified line to the right by a given amount.
         Args:
@@ -188,7 +206,7 @@ class Buffer:
         """
         self.buffer[y] = self.buffer[y][-shift:] + self.buffer[y][:-shift]
 
-    def shift(self, shift):
+    def shift(self, shift: int) -> None:
         """
         Shift the entire buffer to the right by a specified amount.
         Args:
@@ -197,7 +215,7 @@ class Buffer:
         for y in range(self._height):
             self.buffer[y] = self.buffer[y][shift:] + self.buffer[y][:shift]
 
-    def grab_slice(self, x, y, width):
+    def grab_slice(self, x: int, y: int, width: int) -> list[Any]:
         """
         Grab a segment from a specific row in the buffer.
 
@@ -211,7 +229,7 @@ class Buffer:
         """
         return self.buffer[y][x : x + width]
 
-    def sync_with(self, in_buf):
+    def sync_with(self, in_buf: Buffer) -> None:
         """
         Synchronize this buffer with another buffer.
         Args:
@@ -221,7 +239,7 @@ class Buffer:
         for y in range(self._height):
             self.buffer[y][:] = in_buf.buffer[y][:]
 
-    def sync_over_top(self, in_buf):
+    def sync_over_top(self, in_buf: Buffer) -> None:
         """
         Overlay non-None values from another buffer onto this buffer.
 
@@ -234,11 +252,11 @@ class Buffer:
                 if in_buf.buffer[y][x] is not None:
                     self.buffer[y][x] = in_buf.buffer[y][x]
 
-    def _validate_dimensions(self, in_buf):
+    def _validate_dimensions(self, in_buf: Buffer) -> None:
         if self._height != in_buf.height() or self._width != in_buf.width():
             raise ValueError("Buffer dimensions must match")
 
-    def height(self):
+    def height(self) -> int:
         """
         Get the height of the buffer.
         Returns:
@@ -246,7 +264,7 @@ class Buffer:
         """
         return self._height
 
-    def width(self):
+    def width(self) -> int:
         """
         Get the width of the buffer.
 

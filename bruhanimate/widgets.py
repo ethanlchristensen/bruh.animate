@@ -5,9 +5,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Literal
 
+from ._validation import _seconds
 from .bruhutil.bruhffer import Buffer
 from .grid import _glyph
-from .scene import _seconds
 from .styling import TextStyle as TextStyle
 
 TextSource = str | Callable[[], str]

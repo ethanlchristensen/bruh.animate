@@ -14,8 +14,9 @@ The repository is ``ethanlchristensen/bruh.animate``. Set GitHub Pages' source t
 GitHub Actions and configure the ``pypi`` environment to allow release tags.
 Protect main with CI and Documentation checks.
 
-Use either a project-scoped ``PYPI_TOKEN`` secret or Trusted Publishing. For the
-latter, register these fields in PyPI's bruhanimate project publishing settings:
+Uploads use Trusted Publishing (OIDC) with attestations. Before the next release,
+register these fields in PyPI's bruhanimate project publishing settings. The
+bruhcolor project's publisher does not authorize bruhanimate uploads.
 
 .. list-table:: Trusted Publisher identity
    :header-rows: 1
@@ -31,8 +32,9 @@ latter, register these fields in PyPI's bruhanimate project publishing settings:
    * - Environment
      - ``pypi``
 
-Remove PYPI_TOKEN when switching to OIDC. An existing token takes precedence;
-token uploads disable attestations. Trusted Publishing uploads generate them.
+The workflow does not read ``PYPI_TOKEN``. After a successful Trusted Publishing
+release, remove the unused repository/environment secret and revoke the old
+PyPI token if no other workflow uses it.
 These settings are external to the source checkout. Follow the `PyPI setup guide
 <https://docs.pypi.org/trusted-publishers/adding-a-publisher/>`_ for account setup.
 

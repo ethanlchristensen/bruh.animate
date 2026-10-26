@@ -14,7 +14,7 @@ from bruhanimate import (
     save_png,
     save_svg,
 )
-from bruhanimate.export import _MP4, _cell
+from bruhanimate.export import _MP4, _cell, _Rasterizer
 
 
 @pytest.mark.parametrize(
@@ -76,6 +76,32 @@ def test_raster_png_background_and_cell_clipping(tmp_path):
             for x in range(3, 6)
             for y in range(5)
         )
+
+
+@pytest.mark.parametrize("bold", [False, True])
+def test_raster_text_shares_baseline_and_preserves_descenders(bold):
+    Image = pytest.importorskip("PIL.Image")
+    ImageChops = pytest.importorskip("PIL.ImageChops")
+    style = ExportStyle(cell_size=(24, 40), font_size=28)
+    raster = _Rasterizer(style)
+    bounds = {}
+    try:
+        for glyph in "He.gpy_":
+            cell = f"\x1b[1m{glyph}" if bold else glyph
+            tile = raster._tile(cell)
+            with Image.new("RGB", tile.size, style.background) as background:
+                difference = ImageChops.difference(tile, background)
+                try:
+                    bounds[glyph] = difference.getbbox()
+                finally:
+                    difference.close()
+        assert all(bounds.values())
+        # Capital, lowercase and punctuation sit on the same writing line.
+        assert bounds["H"][3] == bounds["e"][3] == bounds["."][3]
+        assert bounds["."][1] > bounds["e"][1] > bounds["H"][1]
+        assert all(bounds[c][3] > bounds["e"][3] for c in "gpy_")
+    finally:
+        raster.close()
 
 
 def test_gif_preserves_total_timing_and_closes_owned_content(tmp_path):

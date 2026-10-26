@@ -10,6 +10,10 @@ focused and preserve unrelated working-tree changes.
 - `player.py`: the only playback loop, input polling, clocks and presentation.
 - `scene.py`: ordered composition, transparency and child lifecycle ownership.
 - `playback.py`: lazy solver snapshots, solver controls and source cleanup.
+- `history.py`, `background.py`: opt-in bounded history and cooperative solver workers.
+- `config.py`, `browser.py`: validated saved settings and one owned live preview.
+- `tween.py`, `themes.py`, `cache.py`: interpolation, shared palettes and explicit drawing caches.
+- `_clock.py`, `_validation.py`: shared simulation clocks and time validation.
 - `grid.py`: board coordinates, camera, clipping and single-cell styling.
 - `bruheffect/`: built-in simulations, settings and the discovery registry.
 - `bruhutil/`: Buffer invariants and platform Screen implementations.

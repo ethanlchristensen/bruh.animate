@@ -180,6 +180,7 @@ class EffectRegistry:
             ):
                 raise TypeError(f"Effect '{name}' does not accept a seed override")
             selected = settings if settings is not None else entry.settings_cls()
+            assert isinstance(selected, EffectSettings)
             settings = replace(deepcopy(selected), seed=seed)
         return settings
 

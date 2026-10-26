@@ -6,12 +6,12 @@ from bisect import bisect_right
 from collections import deque
 from typing import Literal
 
+from ._validation import _seconds
 from .bruhutil.bruhffer import Buffer
 from .grid import _glyph
 from .keyboard import KeyBinding, KeyBindings, _set_visible
 from .player import Animation
 from .resize import _resize, _size
-from .scene import _seconds
 from .widgets import TextStyle, _validate_text
 
 LogWrap = Literal["none", "character"]
