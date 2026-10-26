@@ -25,7 +25,7 @@ dependencies = [
     "bruhcolor>=0.0.66,<0.0.67",
     "pyfiglet>=1.0.4,<2.0.0",
     "numpy>=2.3.4,<3.0.0",
-    "pywin32>=311,<312; sys_platform == 'win32'",
+    "pywin32>=311,<313; sys_platform == 'win32'",
 ]
 
 [project.scripts]
