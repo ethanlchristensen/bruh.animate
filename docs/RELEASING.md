@@ -293,7 +293,13 @@ and Python tests guard workflow YAML, release gates, permissions, pinned Actions
 and Pages PR conditions. These focused checks are not a general Actions expression
 validator. CI does not install Go or compile a workflow linter.
 
-Routine Dependabot version-update PRs are paused to reduce CI noise. Update Action
-pins and dependencies manually, keeping version comments and uv.lock current.
-Security alerts/update PRs are configured separately in GitHub. Use a uv-aware
-updater before re-enabling automated Python version updates.
+Dependabot version-update schedules are removed, and existing bot PRs are closed
+to stop their update/rebase-triggered CI runs. Update Action pins and dependencies
+manually, keeping version comments and uv.lock current. Do not re-enable update
+schedules without the maintainer's request. Automatic security-update PRs are
+disabled separately in GitHub settings.
+
+GitHub's generated Dependency Graph runs are separate from version-update PRs;
+removing dependabot.yml does not disable them. They are controlled by the
+repository's Advanced Security settings, not the normal workflow-disable API.
+Normal CI, documentation and release workflows remain enabled.

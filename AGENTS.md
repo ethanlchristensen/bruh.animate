@@ -109,7 +109,8 @@ publishing. The tag must point to a main-branch commit. Release jobs validate th
 exact commit, run CI/docs, and publish the verified artifact in a separate job.
 Build/test jobs have read-only permissions. Pages deploys only from main.
 Keep third-party Actions pinned to full commit SHAs and update their version
-comments; routine Dependabot version-update PRs are paused to reduce CI noise.
+comments. Dependabot version-update schedules are removed to prevent bot PRs and
+extra CI runs; do not re-enable them without the user's request.
 Refresh pins manually when updating Actions. Do not print tokens or interpolate
 untrusted workflow input directly into shell programs.
 
