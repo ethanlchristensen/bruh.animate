@@ -7,6 +7,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass, field
 from math import floor, isfinite
 
+from ._clock import _fixed_steps
 from ._validation import _seconds
 from .bruhutil.bruhffer import Buffer
 from .grid import _glyph
@@ -129,14 +130,12 @@ class Scene:
                 layer.animation.update(dt)
                 continue
             interval = 1 / layer.updates_per_second
-            elapsed = self._elapsed[index] + dt
-            tolerance = min(1e-9, interval * 1e-6)
-            count = 0
-            while elapsed + tolerance >= interval and count < layer.max_catch_up:
-                elapsed = max(0.0, elapsed - interval)
+            count, elapsed = _fixed_steps(
+                self._elapsed[index], dt, interval, layer.max_catch_up
+            )
+            for _ in range(count):
                 layer.animation.update(interval)
-                count += 1
-            self._elapsed[index] = 0.0 if count == layer.max_catch_up else elapsed
+            self._elapsed[index] = elapsed
 
     def set_visible(self, visible: bool) -> None:
         """Propagate a parent's visibility to focusable descendants."""

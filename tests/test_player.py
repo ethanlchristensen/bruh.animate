@@ -86,6 +86,45 @@ class TrackingEffect(BaseEffect):
         super().close()
 
 
+@pytest.mark.parametrize("failure", ["begin_frame", "print_at", "flush_frame"])
+def test_failed_presentation_invalidates_baseline_and_retries_all_cells(failure):
+    screen = RecordingScreen()
+    presenter = FramePresenter(screen)
+    presenter.present(Buffer(3, 5).clear_buffer(val="A"))
+    original = getattr(screen, failure)
+    setattr(screen, failure, Mock(side_effect=OSError("output failed")))
+    with pytest.raises(OSError, match="output failed"):
+        presenter.present(Buffer(3, 5).clear_buffer(val="B"))
+    setattr(screen, failure, original)
+    screen.writes.clear()
+    # The terminal might contain a partial B frame. Even restoring A must repaint.
+    presenter.present(Buffer(3, 5).clear_buffer(val="A"))
+    assert len(screen.writes) == 15
+    assert all(value == "A" for x, y, value in screen.writes)
+
+
+def test_output_failure_propagates_after_owned_animation_cleanup():
+    screen = RecordingScreen()
+    screen.flush_frame = Mock(side_effect=OSError("output failed"))
+    effect = TrackingEffect(Buffer(3, 5))
+    with pytest.raises(OSError, match="output failed"):
+        Player(screen, effect, frames=2).run()
+    assert effect.calls == ["start", 0, "close"]
+    assert not screen.closed
+
+
+def test_same_size_resume_repaints_without_resizing_or_restarting_content():
+    screen = RecordingScreen()
+    screen.consume_redraw_request = Mock(side_effect=[False, True, False])
+    effect = CallbackEffect(lambda buffer: buffer.clear_buffer(val="X"))
+    effect.start, effect.close, effect.resize = Mock(), Mock(), Mock()
+    assert Player(screen, effect, frames=3, fps=None).run() == 3
+    assert len(screen.writes) == 30  # Two full frames, then no changed cells.
+    effect.start.assert_called_once()
+    effect.close.assert_called_once()
+    effect.resize.assert_not_called()
+
+
 def test_native_effect_retains_trails_and_drawing_does_not_advance():
     effect = TrackingEffect(Buffer(3, 5))
     effect.start()

@@ -69,6 +69,9 @@ Effects
    sand_effect
    diffusion_effect
    water_effect
+   flow_effect
+   growth_effect
+   starfield_effect
    smoke_effect
    metaballs_effect
    cloth_effect

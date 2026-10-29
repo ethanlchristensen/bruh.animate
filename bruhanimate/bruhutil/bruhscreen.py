@@ -216,7 +216,8 @@ if sys.platform == "win32":
                     self._current_x = x + width
                     self._current_y = y
             except pywintypes.error:
-                pass
+                self._current_x = self._current_y = -1
+                raise
 
         def begin_frame(self):
             """Enter frame-batching mode; print_at() calls accumulate until flush_frame()."""
@@ -230,13 +231,15 @@ if sys.platform == "win32":
             reducing Win32 syscalls from O(changed_cells) to 1 per frame.
             Requires ENABLE_VIRTUAL_TERMINAL_PROCESSING on the console output buffer.
             """
-            if self._frame_parts:
-                try:
+            try:
+                if self._frame_parts:
                     self._stdout.WriteConsole("".join(self._frame_parts))
-                except pywintypes.error:
-                    pass
+            except BaseException:
+                self._current_x = self._current_y = -1
+                raise
+            finally:
                 self._frame_parts = []
-            self._buffering = False
+                self._buffering = False
 
         def print_center(self, text, y, width):
             """
@@ -574,6 +577,7 @@ else:
             self.screen.nodelay(1)
             self.signal_state = SignalState()
             self._re_sized = False
+            self._resume_pending = False
             self.signal_state.set(signal.SIGWINCH, self._resize_handler)
             self.signal_state.set(signal.SIGCONT, self._continue_handler)
             curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION)
@@ -604,7 +608,25 @@ else:
             self._re_sized = True
 
         def _continue_handler(self, *_):
-            self.force_update(full_refresh=True)
+            # Signal handlers only mark pending work; terminal I/O belongs to Player.
+            self._resume_pending = True
+
+        def consume_redraw_request(self) -> bool:
+            """Restore program mode after resume and request a full repaint.
+
+            Called between frames, never in the signal handler. A same-size
+            resume does not count as a resize or restart animation state.
+            """
+            if not getattr(self, "_resume_pending", False):
+                return False
+            self._resume_pending = False
+            curses.reset_prog_mode()
+            curses.curs_set(0)
+            self.screen.clearok(True)
+            self.screen.refresh()
+            self._cur_x = self._cur_y = -1
+            self._frame_parts = []
+            return True
 
         def has_resized(self):
             return self._re_sized
@@ -671,19 +693,13 @@ else:
         @staticmethod
         def _safe_write(msg):
             try:
-                try:
-                    sys.stdout.write(msg)
-                except UnicodeEncodeError as error:
-                    # Handle encoding where writing actually happens, including
-                    # batched frames. Preserve encodable glyphs and ANSI escapes;
-                    # each unsupported single-cell glyph becomes one question mark.
-                    sys.stdout.write(
-                        msg.encode(error.encoding, errors="replace").decode(
-                            error.encoding
-                        )
-                    )
-            except IOError:
-                pass
+                sys.stdout.write(msg)
+            except UnicodeEncodeError as error:
+                # Preserve encodable glyphs and ANSI escapes; each unsupported
+                # single-cell glyph becomes one question mark. I/O errors propagate.
+                sys.stdout.write(
+                    msg.encode(error.encoding, errors="replace").decode(error.encoding)
+                )
 
         def print_at(self, text, x, y, width):
             cursor = ""
@@ -707,11 +723,16 @@ else:
             Flush accumulated frame output as a single sys.stdout.write() + flush().
             Goes from O(cells_changed) write() calls to 1 write + 1 flush per frame.
             """
-            if self._frame_parts:
-                self._safe_write("".join(self._frame_parts))
+            try:
+                if self._frame_parts:
+                    self._safe_write("".join(self._frame_parts))
+                sys.stdout.flush()
+            except BaseException:
+                self._cur_x = self._cur_y = -1
+                raise
+            finally:
                 self._frame_parts = []
-            sys.stdout.flush()
-            self._buffering = False
+                self._buffering = False
 
         @classmethod
         def show(cls, function, args=None):

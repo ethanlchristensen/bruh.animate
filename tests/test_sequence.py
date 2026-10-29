@@ -2,7 +2,115 @@ from unittest.mock import Mock
 
 import pytest
 
-from bruhanimate import AnimationSequence, Buffer, CallbackEffect, SequenceStep
+from bruhanimate import (
+    AnimationSequence,
+    Buffer,
+    CallbackEffect,
+    FocusGroup,
+    FocusTarget,
+    KeyBinding,
+    KeyBindings,
+    Label,
+    Panel,
+    SequenceStep,
+)
+
+
+def test_sequence_gap_and_hidden_parent_disable_nested_focus():
+    action = Mock(return_value=None)
+    inner = FocusTarget("inner", KeyBindings(KeyBinding("space", action)))
+    sibling = FocusTarget("sibling", KeyBindings())
+    group = FocusGroup(inner, sibling)
+    sequence = AnimationSequence(
+        SequenceStep(
+            lambda: Panel(Label("X"), size=(1, 1), border=False, focus=inner),
+            duration=1,
+            gap=1,
+        )
+    )
+    outer = Panel(sequence, size=(2, 2), border=False)
+    other = Panel(Label("Y"), size=(1, 1), border=False, focus=sibling)
+    outer.start()
+    other.start()
+    try:
+        assert group.focused is inner
+        sequence.update(1)
+        assert not sequence.visible and not inner.available
+        assert group.focused is sibling
+        group.dispatch(32)
+        sequence.update(1)  # Final gap remains blank when completion is held.
+        outer.set_visible(False)
+        outer.set_visible(True)
+        assert sequence.finished and not inner.available
+        action.assert_not_called()
+    finally:
+        outer.close()
+        other.close()
+
+
+@pytest.mark.parametrize("hide_before_start", [False, True])
+def test_hidden_sequence_replacements_and_repeats_inherit_visibility(hide_before_start):
+    created = []
+
+    def factory():
+        target = FocusTarget(str(len(created)), KeyBindings())
+        child = Panel(Label("X"), size=(1, 1), border=False, focus=target)
+        created.append((target, child))
+        return child
+
+    sequence = AnimationSequence(
+        SequenceStep(factory, 1, gap=1), SequenceStep(factory, 1), repeat=True
+    )
+    if hide_before_start:
+        sequence.set_visible(False)
+    sequence.start()
+    try:
+        assert created[-1][0].available is not hide_before_start
+        sequence.set_visible(False)
+        sequence.update(2)  # New step while hidden.
+        assert all(not target.available for target, child in created)
+        sequence.set_visible(True)
+        assert created[-1][0].available
+        sequence.update(1)  # Repeat creates a fresh first step.
+        assert created[-1][0].available and not created[-2][0].available
+        sequence.update(1)
+        sequence.set_visible(False)
+        sequence.set_visible(True)  # Parent visibility cannot override a gap.
+        assert not created[-1][0].available
+        sequence.update(1)
+        assert created[-1][0].available
+    finally:
+        sequence.close()
+    assert all(not target.available for target, child in created)
+
+
+def test_child_entering_gap_in_large_jump_is_hidden_before_start():
+    observations = []
+
+    class VisibleChild(Child):
+        def set_visible(self, visible):
+            self.visible = visible
+
+        def start(self):
+            observations.append(self.visible)
+            super().start()
+
+    sequence = AnimationSequence(
+        SequenceStep(lambda: Child([], "A"), 1),
+        SequenceStep(lambda: VisibleChild([], "B"), 1, gap=1),
+    )
+    sequence.start()
+    sequence.update(2.5)
+    assert observations == [False] and not sequence.visible
+    before = observations.copy()
+    sequence.draw(Buffer(1, 1))
+    assert observations == before
+    sequence.close()
+
+
+def test_sequence_visibility_validation():
+    with pytest.raises(TypeError, match="visible"):
+        AnimationSequence().set_visible(1)
 
 
 class Child:

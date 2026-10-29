@@ -8,6 +8,7 @@ from importlib import import_module
 from typing import TYPE_CHECKING
 
 from . import effects
+from .actions import ActionQueue
 from .background import BackgroundPlayback
 from .browser import EffectBrowser
 from .bruheffect import (
@@ -32,8 +33,12 @@ from .bruheffect import (
     Firework,
     FireworkEffect,
     FireworkSettings,
+    FlowEffect,
+    FlowSettings,
     GameOfLifeEffect,
     GameOfLifeSettings,
+    GrowthEffect,
+    GrowthSettings,
     JuliaEffect,
     Line,
     MatrixEffect,
@@ -58,6 +63,8 @@ from .bruheffect import (
     SnowEffect,
     SnowSettings,
     StarEffect,
+    StarfieldEffect,
+    StarfieldSettings,
     StarSettings,
     StaticEffect,
     TerminalEffect,
@@ -94,8 +101,10 @@ from .bruhutil import (
     text_to_image,
 )
 from .cache import CachedAnimation
+from .camera import Camera2D
 from .capture import Frame, capture, record
 from .config import EffectConfig
+from .control import AnimationControl, TimingMode
 from .effects import EffectName
 from .export import (
     ExportCancelled,
@@ -106,6 +115,7 @@ from .export import (
     save_png,
     save_svg,
 )
+from .geometry import draw_ellipse, draw_line, draw_rect
 from .grid import GridViewport, draw_grid
 from .history import HistoryPlayback
 from .image import (
@@ -116,11 +126,13 @@ from .image import (
     WipeDirection,
     WipeImageEffect,
 )
+from .inputs import Button, Checkbox, TextInput
 from .keyboard import (
     BindingHint,
     EventResult,
     FocusDirection,
     FocusGroup,
+    FocusStack,
     FocusTarget,
     KeyBinding,
     KeyBindings,
@@ -129,6 +141,7 @@ from .keyboard import (
 from .layout import Column, Fixed, Flex, Row, Slot, Spacer
 from .masks import CellMask, ImageMask
 from .motion import PathEffect, PathMode, PulseEffect, RippleEffect, RippleMetric
+from .objects import ObjectGroup
 from .panel import Panel
 from .playback import Playback
 from .player import (
@@ -142,7 +155,9 @@ from .player import (
 from .resize import Resizable, ResizePolicy
 from .scene import ImageEffect, Layer, Scene, TimedOverlay
 from .sequence import AnimationSequence, SequenceStep
+from .sprites import Sprite, SpriteAsset, SpriteClip
 from .themes import Theme, ThemeName, ThemeRole, get_theme
+from .tilemap import Tile, TileMap
 from .tween import Easing, Tween
 from .views import LogView, LogWrap, ScrollView
 from .widgets import (
@@ -159,21 +174,37 @@ if TYPE_CHECKING:
     from .demos import (
         beam_demo,
         cloth_demo,
+        controls_demo,
         dashboard_demo,
+        flow_demo,
+        growth_demo,
         image_demo,
         metaballs_demo,
         nature_demo,
+        objects_demo,
         routing_demo,
+        settings_demo,
         smoke_demo,
+        starfield_demo,
         terrain_demo,
+        topdown_demo,
         tv_demo,
+        warp_demo,
         water_demo,
         windows_demo,
     )
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __valid_demos__ = [
+    "settings_demo",
+    "controls_demo",
+    "topdown_demo",
+    "objects_demo",
     "water_demo",
+    "flow_demo",
+    "growth_demo",
+    "starfield_demo",
+    "warp_demo",
     "smoke_demo",
     "metaballs_demo",
     "cloth_demo",
@@ -227,6 +258,27 @@ def __dir__():
 
 
 __all__ = [
+    "Button",
+    "Checkbox",
+    "TextInput",
+    "FocusStack",
+    "settings_demo",
+    "ActionQueue",
+    "AnimationControl",
+    "TimingMode",
+    "controls_demo",
+    "Camera2D",
+    "Tile",
+    "TileMap",
+    "topdown_demo",
+    "Sprite",
+    "SpriteAsset",
+    "SpriteClip",
+    "ObjectGroup",
+    "draw_line",
+    "draw_rect",
+    "draw_ellipse",
+    "objects_demo",
     "BackgroundPlayback",
     "EffectBrowser",
     "CachedAnimation",
@@ -241,12 +293,22 @@ __all__ = [
 
     "nature_demo",
     "water_demo",
+    "flow_demo",
+    "growth_demo",
+    "starfield_demo",
+    "warp_demo",
     "smoke_demo",
     "metaballs_demo",
     "cloth_demo",
     "terrain_demo",
     "WaterEffect",
     "WaterSettings",
+    "FlowEffect",
+    "FlowSettings",
+    "GrowthEffect",
+    "GrowthSettings",
+    "StarfieldEffect",
+    "StarfieldSettings",
     "SmokeEffect",
     "SmokeSettings",
     "MetaballsEffect",

@@ -3,6 +3,24 @@
 from ._validation import _seconds
 
 
+def _fixed_steps(
+    elapsed: float, dt: float, interval: float, limit: int
+) -> tuple[int, float]:
+    """Shared Scene/control policy: bounded ticks, drop all remainder at the cap.
+
+    Callers validate nonnegative time, positive interval and integer limit.
+    The bounded subtraction loop avoids an unbounded integer conversion for
+    enormous elapsed/interval ratios. Accumulator overflow also hits the cap.
+    """
+    elapsed += dt
+    tolerance = min(1e-9, interval * 1e-6)
+    count = 0
+    while elapsed + tolerance >= interval and count < limit:
+        elapsed = max(0.0, elapsed - interval)
+        count += 1
+    return count, 0.0 if count == limit else elapsed
+
+
 class _CycleClock:
     """Shared simulation clock, with bounded work across arbitrarily many cycles."""
 

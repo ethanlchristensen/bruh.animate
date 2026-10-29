@@ -33,8 +33,19 @@ and notify inactive effects too, so later phases use the new viewport.
 The :doc:`nature_demo` gallery combines six natural/procedural effects.
 See :doc:`../natural_effects` for settings and presets.
 
+The :doc:`flow_demo`, :doc:`growth_demo` and :doc:`starfield_demo` add curling
+trails, branching shoots and perspective flight. See :doc:`../creative_effects`.
+
 Available Demos
 ---------------
+
+- **settings_demo** — An in-memory modal settings form with text input, checkbox, Apply/Cancel buttons and focus restoration. See :doc:`../forms`.
+
+- **controls_demo** — Pause, step and change speed for fixed-tick snow and continuous sprite motion. See :doc:`../controls`.
+
+- **topdown_demo** — Explore a tile map, collect stars, and follow the player with a bounded camera. See :doc:`../topdown`.
+
+- **objects_demo** — Shared sprite clips, clipped scenery, and dynamically owned sparks. See :doc:`../objects`.
 
 - **routing_demo** — Source pulse, route trace, moving marker, and arrival ripple over snow.
 
@@ -76,6 +87,10 @@ Available Demos
 
    nature_demo
    water_demo
+   flow_demo
+   growth_demo
+   starfield_demo
+   warp_demo
    smoke_demo
    metaballs_demo
    cloth_demo

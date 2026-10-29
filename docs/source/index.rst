@@ -35,8 +35,12 @@ Start here
    discovery
    workbench
    animation_tools
+   controls
+   objects
+   topdown
    solver_tools
    natural_effects
+   creative_effects
    capture
    exports
    motion
@@ -53,6 +57,7 @@ Start here
    panels
    layouts
    keyboard
+   forms
    views
    resize
    playback
@@ -70,4 +75,5 @@ Start here
    performance
    platform_checks
    releasing
+   release_1_6
    release_1_3

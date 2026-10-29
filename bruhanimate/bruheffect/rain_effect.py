@@ -264,7 +264,7 @@ class RainEffect(BaseEffect):
             )
         else:
             self.buffer.shift(
-                self.wind_mappings[self.wind_direction][1] * self.multiplier
+                -self.wind_mappings[self.wind_direction][1] * self.multiplier
             )
             self.buffer.scroll(-1 * self.multiplier)
             self.buffer.put_at(

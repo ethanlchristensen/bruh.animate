@@ -199,21 +199,24 @@ class Buffer:
 
     def shift_line(self, y: int, shift: int) -> None:
         """
-        Shift the specified line to the right by a given amount.
+        Rotate a row by cells: positive shifts right, negative shifts left.
+        Amounts wrap modulo the width; empty rows are unchanged.
         Args:
             y (int): The index of the row to shift.
             shift (int): The amount by which to shift the row.
         """
-        self.buffer[y] = self.buffer[y][-shift:] + self.buffer[y][:-shift]
+        if self._width:
+            shift %= self._width
+            self.buffer[y] = self.buffer[y][-shift:] + self.buffer[y][:-shift]
 
     def shift(self, shift: int) -> None:
         """
-        Shift the entire buffer to the right by a specified amount.
+        Rotate all rows using the same direction and wrapping as shift_line.
         Args:
             shift (int): The amount by which to shift each row.
         """
         for y in range(self._height):
-            self.buffer[y] = self.buffer[y][shift:] + self.buffer[y][:shift]
+            self.shift_line(y, shift)
 
     def grab_slice(self, x: int, y: int, width: int) -> list[Any]:
         """

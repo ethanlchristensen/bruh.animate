@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from ._clock import _CycleClock
 from ._validation import _seconds
 from .bruhutil import Buffer
+from .keyboard import _set_visible
 from .player import Animation
 from .resize import _resize, _size
 
@@ -60,6 +61,8 @@ class AnimationSequence:
     Resize preserves the active child and forwards the latest viewport to future
     children before their first update/draw. No input is polled or automatically
     routed; pass a handler to Player explicitly if interactive content needs one.
+    Blank gaps and hidden ancestors disable descendant focus. Hiding the sequence
+    does not pause its timeline; newly created children inherit that visibility.
     """
 
     def __init__(self, *steps: SequenceStep, repeat: bool = False) -> None:
@@ -78,6 +81,7 @@ class AnimationSequence:
         self._current: Animation | None = None
         self._size: tuple[int, int] | None = None
         self._started = self._closed = False
+        self._parent_visible = True
 
     @property
     def duration(self) -> float:
@@ -105,10 +109,18 @@ class AnimationSequence:
 
     @property
     def visible(self) -> bool:
-        if not self.steps or self._closed:
+        if not self.steps or self._closed or not self._parent_visible:
             return False
         step = self.steps[self.index]
         return step.gap == 0 or self._offset < step.duration + step.hold_duration
+
+    def set_visible(self, visible: bool) -> None:
+        """Set ancestor visibility without pausing the timeline or polling input."""
+        if type(visible) is not bool:
+            raise TypeError("visible must be a bool")
+        self._parent_visible = visible
+        if self._current is not None:
+            _set_visible(self._current, self.visible)
 
     def _release(self) -> None:
         child, self._current = self._current, None
@@ -123,6 +135,7 @@ class AnimationSequence:
             if not isinstance(child, Animation):
                 raise TypeError("factory must return an Animation")
             self._current = child
+            _set_visible(child, self.visible)
             child.start()
             if self._size is not None:
                 _resize(child, self._size)
@@ -158,15 +171,16 @@ class AnimationSequence:
             self._clock.time < before or dt >= self.duration - before
         )
         previous = self._offset
-        if index != self.index or wrapped:
-            self._enter(index)
-            previous = 0
         step = self.steps[index]
         duration = step.duration
         for boundary in (duration, duration + step.hold_duration):
             if abs(offset - boundary) < min(1e-9, duration * 1e-6):
                 offset = boundary
         self._offset = offset
+        if index != self.index or wrapped:
+            self._enter(index)
+            previous = 0
+        self.set_visible(self._parent_visible)
         elapsed = max(0.0, min(offset, duration) - min(previous, duration))
         child = self._current
         if (

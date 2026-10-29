@@ -82,6 +82,7 @@ class FramePresenter:
 
     After present(), the supplied frame belongs to the presenter. Draw into the
     returned buffer instead; mutating the displayed frame would invalidate diffing.
+    Output failures propagate and invalidate the diff baseline for a full retry.
     """
 
     def __init__(self, screen: Screen):
@@ -95,12 +96,16 @@ class FramePresenter:
         ).clear_buffer(val=None)
 
     def present(self, frame: Buffer) -> Buffer:
-        self.screen.begin_frame()
         try:
-            for y, x, value in self.last_displayed.get_buffer_changes(frame):
-                self.screen.print_at(value, x, y, 1)
-        finally:
-            self.screen.flush_frame()
+            self.screen.begin_frame()
+            try:
+                for y, x, value in self.last_displayed.get_buffer_changes(frame):
+                    self.screen.print_at(value, x, y, 1)
+            finally:
+                self.screen.flush_frame()
+        except BaseException:
+            self.resize()
+            raise
         previous = self.last_displayed
         self.last_displayed = frame
         return previous
@@ -292,6 +297,9 @@ class Player:
                     else frame_interval
                 )
                 while self.frames is None or presented < self.frames:
+                    redraw = getattr(self.screen, "consume_redraw_request", None)
+                    if redraw is not None and redraw():
+                        self.presenter.resize()
                     if self.screen.has_resized():
                         if self.on_resize == "raise":
                             raise ScreenResizedError("The screen was resized.")

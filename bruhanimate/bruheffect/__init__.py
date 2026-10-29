@@ -7,7 +7,9 @@ from .diffusion_effect import DiffusionEffect
 from .draw_lines_effect import DrawLinesEffect, Line
 from .fire_effect import FireEffect
 from .firework_effect import Firework, FireworkEffect, Particle
+from .flow_effect import FlowEffect
 from .game_of_life_effect import GameOfLifeEffect
+from .growth_effect import GrowthEffect
 from .julia_effect import JuliaEffect
 from .matrix_effect import MatrixEffect
 from .metaballs_effect import MetaballsEffect
@@ -27,7 +29,9 @@ from .settings import (
     DrawLinesSettings,
     FireSettings,
     FireworkSettings,
+    FlowSettings,
     GameOfLifeSettings,
+    GrowthSettings,
     MatrixSettings,
     MetaballsSettings,
     NoiseSettings,
@@ -38,6 +42,7 @@ from .settings import (
     SandSettings,
     SmokeSettings,
     SnowSettings,
+    StarfieldSettings,
     StarSettings,
     TerrainSettings,
     TwinkleSettings,
@@ -47,6 +52,7 @@ from .settings import (
 from .smoke_effect import SmokeEffect
 from .snow_effect import SnowEffect
 from .star_effect import StarEffect
+from .starfield_effect import StarfieldEffect
 from .static_effect import StaticEffect
 from .terminal_effect import TerminalEffect
 from .terrain_effect import TerrainEffect
@@ -57,6 +63,12 @@ from .water_effect import WaterEffect
 __all__ = [
     "WaterEffect",
     "WaterSettings",
+    "FlowEffect",
+    "FlowSettings",
+    "GrowthEffect",
+    "GrowthSettings",
+    "StarfieldEffect",
+    "StarfieldSettings",
     "SmokeEffect",
     "SmokeSettings",
     "MetaballsEffect",

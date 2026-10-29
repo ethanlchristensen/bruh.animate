@@ -11,6 +11,9 @@ Browse live effects with the same Player and resize behavior used by Python:
 
 Up/down changes effects; left/right changes presets. q, Escape, or Ctrl+C exits.
 The selected Python command prints after the terminal is restored, ready to copy.
+Application-defined effects must be registered before running the snippet.
+Edited settings are constructed through the registry's settings type; the browser
+does not guess imports for application classes or execute registration code.
 Audio is excluded unless ``--audio`` is supplied; subprocess terminal effects are
 excluded. Only one preview is owned at a time. Replacements close before the next
 starts, selection is applied during update, and resizing retains current state.
