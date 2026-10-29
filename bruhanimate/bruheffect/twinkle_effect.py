@@ -105,7 +105,7 @@ class TwinkleEffect(BaseEffect):
         s = validated_settings(settings, TwinkleSettings)
         super(TwinkleEffect, self).__init__(buffer, background, seed=s.seed)
         self.density = s.density
-        self.twinkle_chars = s.twinkle_chars
+        self.twinkle_chars = list(s.twinkle_chars)
         self.specs = []
         self._set_specs()
 
@@ -122,14 +122,16 @@ class TwinkleEffect(BaseEffect):
 
     def set_twinkle_chars(self, twinkle_chars: list[str]):
         """
-        Sets the characters used for the twinkle effect.
+        Validate and copy characters before rebuilding the twinkle field.
+
+        Invalid input leaves the current field and random stream unchanged.
 
         Args:
             twinkle_chars (list[str]): List of characters to randomly assign to twinkle positions.
         """
-        if isinstance(twinkle_chars, list):
-            self.twinkle_chars = twinkle_chars
-            self._set_specs()
+        settings = TwinkleSettings(twinkle_chars=twinkle_chars)
+        self.twinkle_chars = list(settings.twinkle_chars)
+        self._set_specs()
 
     def _set_specs(self):
         self.specs = []

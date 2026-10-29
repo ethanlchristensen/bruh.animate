@@ -153,6 +153,50 @@ class WaterSettings(EffectSettings):
 
 
 @dataclass
+class FlowSettings(EffectSettings):
+    """Curling particle trails; speed is cells/tick and scale is radians/cell."""
+
+    color: bool = True
+    palette: Literal["neon", "ocean", "ember"] = "neon"
+    count: int = _bounded(160, 1, 2000)
+    speed: float = _bounded(0.8, 0, 2)
+    scale: float = _bounded(0.12, 0.01, 1)
+    decay: float = _bounded(0.94, 0, 0.999)
+
+
+@dataclass
+class GrowthSettings(EffectSettings):
+    """Branching shoots; bounded tips and cycles, speed in cells/tick."""
+
+    color: bool = True
+    palette: Literal["coral", "forest", "electric"] = "coral"
+    roots: int = _bounded(4, 1, 32)
+    max_tips: int = _bounded(64, 1, 256)
+    speed: float = _bounded(0.35, 0, 1.5)
+    branch_chance: float = _bounded(0.035, 0, 1)
+    spread: float = _bounded(0.55, 0.1, 1)
+    decay: float = _bounded(0.992, 0, 0.999)
+    cycle_ticks: int = _bounded(180, 1, 2000)
+
+    def validate(self) -> None:
+        super().validate()
+        if self.roots > self.max_tips:
+            raise ValueError("roots must not exceed max_tips")
+
+
+@dataclass
+class StarfieldSettings(EffectSettings):
+    """Perspective flight; speed is depth/tick and twist is radians/tick."""
+
+    color: bool = True
+    count: int = _bounded(180, 1, 2000)
+    speed: float = _bounded(0.018, 0, 0.2)
+    twist: float = _bounded(0.0, -0.1, 0.1)
+    zoom: float = _bounded(0.8, 0.2, 1)
+    trails: float = _bounded(0.55, 0, 0.98)
+
+
+@dataclass
 class SmokeSettings(EffectSettings):
     """Advected density in an artistic curl field, with an optional obstacle mask.
 

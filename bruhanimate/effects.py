@@ -23,7 +23,9 @@ from .bruheffect.settings import (
     DrawLinesSettings,
     FireSettings,
     FireworkSettings,
+    FlowSettings,
     GameOfLifeSettings,
+    GrowthSettings,
     MatrixSettings,
     MetaballsSettings,
     NoiseSettings,
@@ -34,6 +36,7 @@ from .bruheffect.settings import (
     SandSettings,
     SmokeSettings,
     SnowSettings,
+    StarfieldSettings,
     StarSettings,
     TerrainSettings,
     TwinkleSettings,
@@ -311,7 +314,22 @@ TerrainPreset = Literal["hills", "mountains", "contours"]
 terrain: EffectInfo[TerrainSettings, TerrainPreset] = EffectInfo("terrain")
 """Perspective flyover of seeded hills with shaded or contour rendering."""
 
+FlowPreset = Literal["neon", "ocean", "ember"]
+flow: EffectInfo[FlowSettings, FlowPreset] = EffectInfo("flow")
+
+GrowthPreset = Literal["coral", "forest", "electric"]
+growth: EffectInfo[GrowthSettings, GrowthPreset] = EffectInfo("growth")
+
+StarfieldPreset = Literal["drift", "warp", "spiral"]
+starfield: EffectInfo[StarfieldSettings, StarfieldPreset] = EffectInfo("starfield")
+
 __all__ = [
+    "StarfieldPreset",
+    "starfield",
+    "GrowthPreset",
+    "growth",
+    "FlowPreset",
+    "flow",
     "WaterPreset",
     "water",
     "SmokePreset",

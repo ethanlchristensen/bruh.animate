@@ -47,6 +47,7 @@ Only update advances time. Each child receives updates for at most its step
 duration. When its optional ``finished`` property becomes True, further updates
 stop; its final frame stays available through the remaining duration and hold.
 The blank gap paints nothing, so a Scene reveals its lower layers cleanly.
+It also disables descendant focus, including a final gap held after completion.
 ``duration`` on the sequence includes all step durations, holds, and gaps.
 
 Large time jumps go directly to the destination step. Skipped steps are never
@@ -74,6 +75,12 @@ or None before start/after close; do not close it yourself. ``index``, ``phase_n
 ``visible``, and ``finished`` support captions and status displays. Configure steps
 and repeat at construction. No terminal or input handling is created implicitly;
 route keyboard events explicitly through Player if children need them.
+
+``set_visible(False)`` hides the sequence and its descendants without pausing its
+timeline. Ancestor visibility and step visibility both have to allow painting and
+focus; showing an ancestor cannot expose a child during a blank gap. Replacements
+inherit effective visibility before startup, including across repeat boundaries.
+Visibility changes occur during control/update, never as a side effect of draw.
 
 ``resize((width, height))`` preserves time and the active instance, forwarding the
 notification to resizable content. Later children receive the latest size after

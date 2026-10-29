@@ -251,7 +251,9 @@ def _populate():
     from .draw_lines_effect import DrawLinesEffect
     from .fire_effect import FireEffect
     from .firework_effect import FireworkEffect
+    from .flow_effect import FlowEffect
     from .game_of_life_effect import GameOfLifeEffect
+    from .growth_effect import GrowthEffect
     from .julia_effect import JuliaEffect
     from .matrix_effect import MatrixEffect
     from .metaballs_effect import MetaballsEffect
@@ -270,7 +272,9 @@ def _populate():
         DrawLinesSettings,
         FireSettings,
         FireworkSettings,
+        FlowSettings,
         GameOfLifeSettings,
+        GrowthSettings,
         MatrixSettings,
         MetaballsSettings,
         NoiseSettings,
@@ -281,6 +285,7 @@ def _populate():
         SandSettings,
         SmokeSettings,
         SnowSettings,
+        StarfieldSettings,
         StarSettings,
         TerrainSettings,
         TwinkleSettings,
@@ -290,6 +295,7 @@ def _populate():
     from .smoke_effect import SmokeEffect
     from .snow_effect import SnowEffect
     from .star_effect import StarEffect
+    from .starfield_effect import StarfieldEffect
     from .static_effect import StaticEffect
     from .terrain_effect import TerrainEffect
     from .twinkle_effect import TwinkleEffect
@@ -542,6 +548,44 @@ def _populate():
             "waveform": AudioSettings(mode="waveform", color=True, smoothing=0.6),
             "spectrum": AudioSettings(mode="spectrum", color=True, smoothing=0.6),
             "minimal": AudioSettings(mode="bars", color=False, smoothing=0.6),
+        },
+    )
+
+    effect_registry.register(
+        "flow",
+        FlowEffect,
+        settings_cls=FlowSettings,
+        description="Curling particle trails through a smooth evolving flow field.",
+        presets={
+            "neon": FlowSettings(),
+            "ocean": FlowSettings(palette="ocean", speed=0.45, scale=0.08, decay=0.97),
+            "ember": FlowSettings(palette="ember", speed=1.2, scale=0.18, decay=0.90),
+        },
+    )
+    effect_registry.register(
+        "growth",
+        GrowthEffect,
+        settings_cls=GrowthSettings,
+        description="Branching coral, forest or electric shoots with fading generations.",
+        presets={
+            "coral": GrowthSettings(),
+            "forest": GrowthSettings(
+                palette="forest", roots=8, spread=0.35, branch_chance=0.025
+            ),
+            "electric": GrowthSettings(
+                palette="electric", speed=1.2, spread=0.8, decay=0.94, cycle_ticks=60
+            ),
+        },
+    )
+    effect_registry.register(
+        "starfield",
+        StarfieldEffect,
+        settings_cls=StarfieldSettings,
+        description="Perspective flight through stars with depth, rotation and streaks.",
+        presets={
+            "drift": StarfieldSettings(speed=0.008, trails=0),
+            "warp": StarfieldSettings(speed=0.055, trails=0.8, count=260),
+            "spiral": StarfieldSettings(twist=0.025, trails=0.7),
         },
     )
 

@@ -25,6 +25,66 @@ def enter(browser, text):
     assert not browser.handle_event(13)
 
 
+@pytest.mark.parametrize("edited", [False, True])
+def test_browser_custom_settings_snippet_uses_registered_type(monkeypatch, edited):
+    from dataclasses import dataclass
+
+    import bruhanimate
+    from bruhanimate import BaseEffect, effect_registry
+
+    @dataclass
+    class ApplicationSettings:
+        speed: int = 1
+
+    class ApplicationEffect(BaseEffect):
+        def __init__(self, buffer, background, settings=None):
+            super().__init__(buffer, background)
+
+        def update(self, dt):
+            pass
+
+    monkeypatch.setattr(effect_registry, "_registry", effect_registry.entries())
+    effect_registry.register("review-custom", ApplicationEffect, ApplicationSettings)
+    browser = EffectBrowser()
+    browser.filter("review-custom")
+    browser.start()
+    try:
+        if edited:
+            browser.handle_event(ord("e"))
+            browser.handle_event(21)
+            enter(browser, "speed=2")
+            browser.update(0)
+        play = Mock()
+        monkeypatch.setattr(bruhanimate, "play", play)
+        assert "Register application-defined effects" in browser.command
+        exec(browser.command, {})
+        assert play.call_args.args == ("review-custom",)
+        if edited:
+            assert play.call_args.kwargs["settings"] == ApplicationSettings(speed=2)
+        assert "import play, ApplicationSettings" not in browser.command
+    finally:
+        browser.close()
+
+
+def test_browser_edited_builtin_snippet_is_standalone(monkeypatch):
+    import bruhanimate
+
+    browser = EffectBrowser()
+    browser.filter("snow")
+    browser.start()
+    try:
+        browser.handle_event(ord("e"))
+        browser.handle_event(21)
+        enter(browser, "wind=0.6")
+        browser.update(0)
+        play = Mock()
+        monkeypatch.setattr(bruhanimate, "play", play)
+        exec(browser.command, {})
+        assert play.call_args.kwargs["settings"].wind == 0.6
+    finally:
+        browser.close()
+
+
 def test_browser_search_edit_save_and_export_snapshot(tmp_path):
     browser = EffectBrowser(size=(30, 12), output_dir=tmp_path)
     browser.start()

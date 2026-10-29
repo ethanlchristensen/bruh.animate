@@ -63,6 +63,11 @@ keep their contract.
 Resize raises ScreenResizedError after cleanup by default. Set
 ``on_resize="resize"`` for state-preserving reflow; see :doc:`resize`.
 Other errors also propagate.
+Terminal write/flush errors invalidate the presenter's diff baseline and propagate
+after owned content is closed. A caller retrying a borrowed FramePresenter gets a
+full repaint. On Unix, SIGCONT only queues a resume request; Player restores
+terminal mode and invalidates presentation between frames, without restarting
+content or treating a same-size resume as a resize.
 manage_effect=False borrows an already started instance without start/close.
 
 See the `full player guide

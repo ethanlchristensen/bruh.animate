@@ -160,6 +160,11 @@ class EffectBrowser:
 
     @property
     def command(self) -> str:
+        """Python snippet; application-defined effects must already be registered.
+
+        Edited settings are constructed through their registry entry, never an
+        inferred import of an application-defined settings class.
+        """
         if not self.names:
             return "# No matching effects selected."
         config = self.configuration()
@@ -168,18 +173,22 @@ class EffectBrowser:
             and is_dataclass(config.settings)
             and not isinstance(config.settings, type)
         ):
-            clsname = type(config.settings).__name__
             args = ", ".join(
                 f"{key}={value!r}" for key, value in asdict(config.settings).items()
             )
             return (
-                f"from bruhanimate import play, {clsname}\n"
-                f"play({self.effect!r}, settings={clsname}({args}), fps=30, updates_per_second=30, on_resize='resize')"
+                "# Register application-defined effects before running this snippet.\n"
+                "from bruhanimate import effect_registry, play\n"
+                f"settings_type = effect_registry.get({self.effect!r}).settings_cls\n"
+                f"play({self.effect!r}, settings=settings_type({args}), fps=30, updates_per_second=30, on_resize='resize')"
             )
         options = f", preset={self.preset!r}" if self.preset else ""
         if hasattr(config.settings, "seed"):
             options += f", seed={self.seed}"
-        return f"from bruhanimate import play\nplay({self.effect!r}{options}, fps=30, updates_per_second=30, on_resize='resize')"
+        return (
+            "# Register application-defined effects before running this snippet.\n"
+            f"from bruhanimate import play\nplay({self.effect!r}{options}, fps=30, updates_per_second=30, on_resize='resize')"
+        )
 
     def _reset_selection(self) -> None:
         self._settings = None

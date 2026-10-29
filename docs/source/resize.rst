@@ -91,6 +91,12 @@ the implementation provided by the effect:
   preserving local wave velocity; added cells are still. The field repaints.
 * **Smoke/Ink:** density and obstacle cells retain their top-left overlap. Added
   cells are empty; the source uses the new top/bottom edge on its next update.
+* **Flow:** trail brightness retains top-left overlap; particles wrap into the
+  new bounds. Added trail cells are empty.
+* **Growth:** trail brightness retains top-left overlap; offscreen live tips are
+  discarded. If none survive, the next update plants roots at the new bottom.
+* **Starfield:** 3D points survive and reproject immediately. Screen-space trails
+  clear to prevent old streaks being attached to newly projected stars.
 * **Metaballs, Cloth:** the current phase remaps to the new viewport. Blob orbits,
   cloth art and random streams stay intact; the raster repaints immediately.
 * **Terrain:** the same seeded height field and camera travel position are

@@ -25,11 +25,13 @@ from bruhanimate import (
     FireEffect,
     Fixed,
     Flex,
+    FlowSettings,
     FocusGroup,
     FocusImageEffect,
     FocusTarget,
     Frame,
     GlitchImageEffect,
+    GrowthSettings,
     ImageEffect,
     ImageMask,
     KeyBinding,
@@ -64,6 +66,7 @@ from bruhanimate import (
     SnowEffect,
     SnowSettings,
     Spacer,
+    StarfieldSettings,
     StatusBar,
     TerminalEffect,
     TerrainEffect,
@@ -437,3 +440,7 @@ cloth = ClothEffect(Buffer(10, 20), " ", image=["BRUH"])
 assert_type(cloth.set_image(None), None)
 assert_type(MetaballsEffect(Buffer(10, 20), " ").resize((30, 15)), None)
 assert_type(TerrainEffect(Buffer(10, 20), " ").resize((30, 15)), None)
+
+assert_type(effects.flow.defaults(), FlowSettings)
+assert_type(effects.growth.preset("coral"), GrowthSettings)
+assert_type(effects.starfield.preset("warp"), StarfieldSettings)

@@ -152,3 +152,35 @@ def test_empty_buffers_preserve_dimensions(size):
     assert len(buffer.buffer) == size[0]
     assert all(len(row) == size[1] for row in buffer.buffer)
     assert list(buffer.get_buffer_changes(Buffer(*size))) == []
+
+
+@pytest.mark.parametrize(
+    "shift,expected",
+    [
+        (0, "ABCD"),
+        (1, "DABC"),
+        (-1, "BCDA"),
+        (4, "ABCD"),
+        (5, "DABC"),
+        (-5, "BCDA"),
+        (1001, "DABC"),
+    ],
+)
+def test_horizontal_rotation_has_consistent_direction_and_wrap(shift, expected):
+    whole, single = Buffer(2, 4), Buffer(2, 4)
+    for buffer in (whole, single):
+        buffer.put_at(0, 0, "ABCD")
+        buffer.put_at(0, 1, "ABCD")
+    whole.shift(shift)
+    single.shift_line(1, shift)
+    assert whole.buffer == [list(expected), list(expected)]
+    assert single.buffer == [list("ABCD"), list(expected)]
+    whole.put_char(0, 0, "!")
+    assert whole.buffer[1] == list(expected)
+
+
+def test_rotating_empty_rows_is_inert():
+    buffer = Buffer(2, 0)
+    buffer.shift(5)
+    buffer.shift_line(1, -5)
+    assert buffer.buffer == [[], []]

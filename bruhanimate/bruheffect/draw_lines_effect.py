@@ -25,13 +25,13 @@ class Line:
     A line segment defined by two endpoints.
     """
 
-    def __init__(self, start_point: tuple[int], end_point: tuple[int]):
+    def __init__(self, start_point: tuple[int, int], end_point: tuple[int, int]):
         """
         Initializes a Line with start and end points (doubled for sub-cell rendering).
 
         Args:
-            start_point (tuple[int]): Start point as (x, y).
-            end_point (tuple[int]): End point as (x, y).
+            start_point (tuple[int, int]): Start point in terminal cells (x, y).
+            end_point (tuple[int, int]): End point in terminal cells (x, y).
         """
         if start_point and end_point:
             self.start_point = (start_point[0] * 2, start_point[1] * 2)
@@ -40,23 +40,23 @@ class Line:
             self.start_point = None
             self.end_point = None
 
-    def update_points(self, start_point: tuple[int], end_point: tuple[int]):
+    def update_points(self, start_point: tuple[int, int], end_point: tuple[int, int]):
         """
-        Updates the line's start and end points.
+        Update endpoints in terminal cells, using the constructor's units.
 
         Args:
-            start_point (tuple[int]): New start point as (x, y).
-            end_point (tuple[int]): New end point as (x, y).
+            start_point (tuple[int, int]): New start point as (x, y).
+            end_point (tuple[int, int]): New end point as (x, y).
         """
-        self.start_point = (start_point[0], start_point[1])
-        self.end_point = (end_point[0], end_point[1])
+        self.start_point = (start_point[0] * 2, start_point[1] * 2)
+        self.end_point = (end_point[0] * 2, end_point[1] * 2)
 
     def get_points(self):
         """
-        Returns the start and end points of the line.
+        Return stored endpoints in doubled subcell coordinates.
 
         Returns:
-            tuple[tuple[int], tuple[int]]: The start and end points.
+            tuple[tuple[int, int], tuple[int, int]]: The stored start and end points.
         """
         return self.start_point, self.end_point
 
@@ -83,13 +83,13 @@ class DrawLinesEffect(BaseEffect):
         self.char = s.char
         self.thin = s.thin
 
-    def add_line(self, start_point: tuple[int], end_point: tuple[int]):
+    def add_line(self, start_point: tuple[int, int], end_point: tuple[int, int]):
         """
         Adds a line segment to be rendered.
 
         Args:
-            start_point (tuple[int]): Start point as (x, y).
-            end_point (tuple[int]): End point as (x, y).
+            start_point (tuple[int, int]): Start point in terminal cells (x, y).
+            end_point (tuple[int, int]): End point in terminal cells (x, y).
         """
         self.lines.append(Line(start_point, end_point))
 
@@ -100,10 +100,10 @@ class DrawLinesEffect(BaseEffect):
                 self.buffer.put_at(0, y, self.background * self.buffer.width())
             for line in self.lines:
                 if (
-                    (line.start_point[0] < 0 and line.end_point[0]) < 0
+                    (line.start_point[0] < 0 and line.end_point[0] < 0)
                     or (
                         line.start_point[0] >= self.buffer.width() * 2
-                        and line.end_point[0] > self.buffer.width() * 2
+                        and line.end_point[0] >= self.buffer.width() * 2
                     )
                     or (line.start_point[1] < 0 and line.end_point[1] < 0)
                     or (
@@ -111,7 +111,7 @@ class DrawLinesEffect(BaseEffect):
                         and line.end_point[1] >= self.buffer.height() * 2
                     )
                 ):
-                    return
+                    continue
 
                 line_chars = " ''^.|/7.\\|Ywbd#"
                 dx = abs(line.end_point[0] - line.start_point[0])

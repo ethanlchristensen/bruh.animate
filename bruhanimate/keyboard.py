@@ -207,15 +207,22 @@ class KeyBindings:
 
 
 class FocusTarget:
-    """Bindings and focus state for one Panel, registered in one FocusGroup.
+    """Bindings and focus state for one Panel/control, in one FocusGroup.
 
     A target becomes eligible when its panel starts and is visible. enabled=False
     excludes it without pausing its animation. The group borrows targets; neither
-    targets nor groups start/close content. Never attach a target to two panels.
+    targets nor groups start/close content. Never attach a target to two owners.
+    An optional handler receives keys not matched by bindings and must return
+    EventResult. FocusGroup still reserves its navigation keys before dispatch.
     """
 
     def __init__(
-        self, name: str, bindings: KeyBindings, *, enabled: bool = True
+        self,
+        name: str,
+        bindings: KeyBindings,
+        *,
+        enabled: bool = True,
+        handler: Callable[[int], EventResult] | None = None,
     ) -> None:
         _text(name)
         if not name:
@@ -224,6 +231,9 @@ class FocusTarget:
             raise TypeError("bindings must be KeyBindings")
         if type(enabled) is not bool:
             raise TypeError("enabled must be a bool")
+        if handler is not None and not callable(handler):
+            raise TypeError("handler must be callable or None")
+        self._handler = handler
         self._name, self._bindings, self._enabled = name, bindings, enabled
         self._active = self._focused = False
         self._owner: object | None = None
@@ -261,9 +271,17 @@ class FocusTarget:
         if self._group is not None:
             self._group._reconcile()
 
+    def _dispatch(self, event: int) -> EventResult:
+        result = self.bindings.dispatch(event)
+        if result is EventResult.UNHANDLED and self._handler is not None:
+            result = self._handler(event)
+            if not isinstance(result, EventResult):
+                raise TypeError("FocusTarget handler must return EventResult")
+        return result
+
     def _attach(self, owner: object) -> None:
         if self._owner is not None:
-            raise ValueError("A FocusTarget can belong to only one panel")
+            raise ValueError("A FocusTarget can belong to only one panel/control")
         self._owner = owner
 
     def _activate(self, active: bool) -> None:
@@ -281,7 +299,7 @@ class FocusGroup:
     Pass handle_event to Player. Tab/Shift+Tab are reserved navigation by default;
     override next_key/previous_key with typed key names. Focus wraps by default.
     Unhandled q/Q, Escape and Ctrl+C quit unless global_bindings is supplied.
-    Local bindings can consume those keys first. Hidden/disabled/closed panels
+    Local bindings/handlers can consume those keys first. Hidden/disabled/closed targets
     are skipped. Showing a panel does not steal focus from an eligible selection.
     No terminal polling, simulation advancement, or child ownership occurs here.
     """
@@ -321,6 +339,9 @@ class FocusGroup:
             )
         )
         self._focused: FocusTarget | None = None
+        self._suspended = False
+        self._saved_focus: FocusTarget | None = None
+        self._stack: FocusStack | None = None
         for target in targets:
             target._group = self
         self._reconcile()
@@ -341,6 +362,9 @@ class FocusGroup:
             target._focused = True
 
     def _reconcile(self) -> None:
+        if self._suspended:
+            self._select(None)
+            return
         if self._focused is not None and self._focused.available:
             return
         start = (
@@ -349,11 +373,25 @@ class FocusGroup:
         ordered = self._targets[start:] + self._targets[:start]
         self._select(next((t for t in ordered if t.available), None))
 
+    def _suspend(self, suspended: bool) -> None:
+        if suspended == self._suspended:
+            return
+        self._suspended = suspended
+        if suspended:
+            self._saved_focus = self._focused
+            self._select(None)
+        else:
+            saved, self._saved_focus = self._saved_focus, None
+            if saved is not None and saved.available:
+                self._select(saved)
+            else:
+                self._reconcile()
+
     def focus(self, name: str) -> bool:
         """Select a named eligible target; False if hidden/disabled, KeyError if unknown."""
         for target in self._targets:
             if target.name == name:
-                if target.available:
+                if target.available and not self._suspended:
                     self._select(target)
                     return True
                 return False
@@ -363,6 +401,8 @@ class FocusGroup:
         """Move in declaration order, skipping unavailable targets."""
         if direction not in ("next", "previous"):
             raise ValueError("direction must be next or previous")
+        if self._suspended:
+            return
         available = [target for target in self._targets if target.available]
         if not available:
             return
@@ -381,18 +421,99 @@ class FocusGroup:
 
     def dispatch(self, event: int) -> EventResult:
         code = _event(event)
+        if self._suspended:
+            return EventResult.UNHANDLED
         if code in (self._next, self._previous):
             self.move("next" if code == self._next else "previous")
             return EventResult.HANDLED
         if self._focused is not None:
-            result = self._focused.bindings.dispatch(code)
+            result = self._focused._dispatch(code)
             if result is not EventResult.UNHANDLED:
                 return result
+            # A custom handler may push a modal and still return UNHANDLED.
+            # Do not run the now-suspended scope's global shortcut afterward.
+            if self._suspended:
+                return EventResult.HANDLED
         return self._global.dispatch(code)
 
     def handle_event(self, event: int) -> bool:
         """Return True only for quit, matching Player's event_handler contract."""
         return self.dispatch(event) is EventResult.QUIT
+
+
+class FocusStack:
+    """Borrow a root FocusGroup and nested modal groups; route only to the top.
+
+    Push suspends lower groups, including their global shortcuts and focus
+    highlights. Pop restores the previous target if still eligible, otherwise
+    the first eligible target. Unhandled modal keys are consumed, preventing
+    caller fallback into background controls. No automatic Escape/quit policy is
+    installed: configure each group's global bindings explicitly.
+
+    This router does not own, start, hide or close animations. Hide/close modal
+    content before popping its group. A popped group becomes standalone again;
+    its own eligible target may regain focus. Groups cannot be in two stacks or
+    pushed twice. Close releases all borrowed groups to standalone operation,
+    never closes their controls, and makes this stack unusable for further input.
+    """
+
+    def __init__(self, root: FocusGroup) -> None:
+        self._validate(root)
+        self._groups = [root]
+        self._closed = False
+        root._stack = self
+
+    @staticmethod
+    def _validate(group: FocusGroup) -> None:
+        if not isinstance(group, FocusGroup):
+            raise TypeError("scope must be a FocusGroup")
+        if group._stack is not None:
+            raise ValueError("FocusGroup already belongs to a stack")
+
+    @property
+    def active(self) -> FocusGroup | None:
+        return self._groups[-1] if self._groups else None
+
+    @property
+    def depth(self) -> int:
+        return len(self._groups)
+
+    def push(self, group: FocusGroup) -> None:
+        if self._closed:
+            raise RuntimeError("FocusStack is closed")
+        self._validate(group)
+        self._groups[-1]._suspend(True)
+        group._stack = self
+        self._groups.append(group)
+
+    def pop(self) -> FocusGroup:
+        """Release the top modal scope; the root cannot be popped."""
+        if self._closed or len(self._groups) < 2:
+            raise RuntimeError("no modal scope to pop")
+        removed = self._groups.pop()
+        removed._stack = None
+        self._groups[-1]._suspend(False)
+        return removed
+
+    def dispatch(self, event: int) -> EventResult:
+        if self._closed:
+            raise RuntimeError("FocusStack is closed")
+        modal = self.depth > 1
+        result = self._groups[-1].dispatch(event)
+        if result is EventResult.UNHANDLED and (modal or self.depth > 1):
+            return EventResult.HANDLED
+        return result
+
+    def handle_event(self, event: int) -> bool:
+        return self.dispatch(event) is EventResult.QUIT
+
+    def close(self) -> None:
+        if not self._closed:
+            self._closed = True
+            groups, self._groups = self._groups, []
+            for group in reversed(groups):
+                group._stack = None
+                group._suspend(False)
 
 
 def _set_visible(animation: object, visible: bool) -> None:

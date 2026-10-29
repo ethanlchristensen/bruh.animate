@@ -10,6 +10,74 @@ import pytest
 from bruhanimate.bruhutil import bruhscreen
 
 
+def test_unix_resume_defers_terminal_work_and_requests_one_redraw(unix_screen):
+    screen_cls, curses = unix_screen
+    screen = screen_cls.__new__(screen_cls)
+    screen.screen = Mock()
+    screen._re_sized = False
+    screen._continue_handler()
+    curses.reset_prog_mode.assert_not_called()
+    screen.screen.refresh.assert_not_called()
+    assert not screen.has_resized()
+    assert screen.consume_redraw_request()
+    curses.reset_prog_mode.assert_called_once()
+    curses.curs_set.assert_called_once_with(0)
+    screen.screen.clearok.assert_called_once_with(True)
+    screen.screen.refresh.assert_called_once()
+    assert screen._cur_x == screen._cur_y == -1
+    assert not screen.consume_redraw_request()
+
+
+@pytest.mark.parametrize("failure", ["write", "flush"])
+def test_unix_output_errors_propagate_and_reset_batch(
+    unix_screen, monkeypatch, failure
+):
+    from bruhanimate import Buffer, FramePresenter
+
+    screen_cls, curses = unix_screen
+    curses.tparm.return_value = b"\x1b[1;1H"
+    screen = screen_cls.__new__(screen_cls)
+    screen.width = screen.height = 1
+    screen._cur_x = screen._cur_y = -1
+    screen._move_y_x = b"cup"
+    output = Mock()
+    monkeypatch.setattr(sys, "stdout", output)
+    getattr(output, failure).side_effect = OSError("output failed")
+    presenter = FramePresenter(screen)
+    with pytest.raises(OSError, match="output failed"):
+        presenter.present(Buffer(1, 1).clear_buffer(val="X"))
+    assert screen._frame_parts == [] and not screen._buffering
+    assert screen._cur_x == screen._cur_y == -1
+    assert presenter.last_displayed.buffer == [[None]]
+    getattr(output, failure).side_effect = None
+    presenter.present(Buffer(1, 1).clear_buffer(val="X"))
+    assert output.write.call_args.args == ("\x1b[1;1HX",)
+    assert output.write.call_count == 2
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows backend")
+def test_windows_write_failure_is_not_committed_as_a_presented_frame():
+    from bruhanimate import Buffer, FramePresenter
+
+    screen = bruhscreen.Screen.__new__(bruhscreen.Screen)
+    screen.width = screen.height = 1
+    screen._current_x = screen._current_y = -1
+    screen._stdout = Mock()
+    screen._stdout.WriteConsole.side_effect = bruhscreen.pywintypes.error(
+        6, "WriteConsole", "invalid handle"
+    )
+    presenter = FramePresenter(screen)
+    with pytest.raises(bruhscreen.pywintypes.error):
+        presenter.present(Buffer(1, 1).clear_buffer(val="X"))
+    assert screen._frame_parts == [] and not screen._buffering
+    assert screen._current_x == screen._current_y == -1
+    assert presenter.last_displayed.buffer == [[None]]
+    screen._stdout.WriteConsole.side_effect = None
+    presenter.present(Buffer(1, 1).clear_buffer(val="X"))
+    assert screen._stdout.WriteConsole.call_count == 2
+    assert screen._stdout.WriteConsole.call_args.args == ("\x1b[1;1HX",)
+
+
 @pytest.fixture
 def unix_screen(monkeypatch):
     """Exercise the Unix implementation even when the test host is Windows."""

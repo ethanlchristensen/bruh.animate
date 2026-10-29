@@ -2,8 +2,9 @@ Keyboard bindings and focus
 ===========================
 
 ``KeyBinding`` describes an action, ``KeyBindings`` groups actions, and
-``FocusGroup`` routes input to a selected panel. Player remains the only input
+``FocusGroup`` routes input to a selected panel or editable control. Player remains the only input
 poller. These helpers do not open a terminal, start threads, or own animations.
+For editable fields, buttons and nested modal routing with FocusStack, see :doc:`forms`.
 
 An interactive panel
 --------------------
@@ -53,8 +54,9 @@ Typing ``KeyBinding("`` in an editor exposes the ``KeyName`` Literal choices:
 Use ``KeyBinding.character("n", action, description="step")`` for a printable
 single-cell character. Character bindings are case-sensitive. ASCII characters
 are the portable choice; terminal encoding and key interception can limit which
-events reach the application. Arbitrary modifier chords and text editing are not
-provided. Wide/combining glyphs, control characters, and escape sequences are not
+events reach the application. Arbitrary modifier chords are not provided; the
+TextInput control adds bounded single-line editing. Wide/combining glyphs,
+control characters, and escape sequences are not
 valid character bindings.
 
 Actions take no arguments and return None. A matching action consumes its key;

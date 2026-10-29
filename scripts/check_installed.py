@@ -22,6 +22,68 @@ def main() -> None:
     assert version("bruhanimate") == package.__version__
     assert (installed.parent / "py.typed").is_file()
     assert all(hasattr(package, name) for name in package.__all__)
+    field = package.TextInput("name", "A")
+    form = package.FocusGroup(field.focus)
+    router = package.FocusStack(form)
+    field.start()
+    try:
+        assert not router.handle_event(ord("q"))
+        assert field.value == "Aq"
+        router.push(package.FocusGroup(global_bindings=package.KeyBindings()))
+        assert router.dispatch(ord("x")) is package.EventResult.HANDLED
+        assert field.value == "Aq"
+        router.pop()
+        assert form.focused is field.focus
+    finally:
+        router.close()
+        field.close()
+    queue = package.ActionQueue[str](capacity=2)
+    queue.bind("step")()
+    assert queue.drain() == ("step",)
+    controlled_sprite = package.Sprite(
+        package.SpriteAsset.from_text("X"), velocity=(2, 0)
+    )
+    control = package.AnimationControl(
+        controlled_sprite, mode="continuous", time_scale=0.5
+    )
+    control.start()
+    try:
+        control.update(1)
+        assert controlled_sprite.position == (1, 0)
+        control.pause()
+        control.update(100)
+        assert controlled_sprite.position == (1, 0)
+        control.step()
+        control.update(0)
+        assert controlled_sprite.position[0] > 1
+    finally:
+        control.close()
+    world = package.TileMap(
+        ["..#"], {".": package.Tile("."), "#": package.Tile("#", solid=True)}
+    )
+    camera = package.Camera2D((2, 1), world_size=(world.width, world.height))
+    camera.follow((1, 0))
+    assert world.move((0, 0, 1, 1), (100, 0)) == (1, 0)
+    target = Buffer(1, 2)
+    world.draw(target, camera=camera)
+    assert target.buffer == [[".", "."]]
+    asset = package.SpriteAsset.from_text("X")
+    sprite = package.Sprite(package.SpriteClip([asset], repeat=False))
+    group = package.ObjectGroup({"sprite": sprite})
+    group.start()
+    try:
+        group.update(0.1)
+        target = Buffer(3, 5)
+        package.draw_rect(target, (0, 0, 5, 3), ".")
+        package.draw_ellipse(target, (1, 1, 3, 1), "~")
+        package.draw_line(target, (1, 0), (3, 0), "-")
+        group.draw(target)
+        assert target.get_char(0, 0) == "X" and sprite.finished
+        group.remove("sprite")
+        group.update(0)
+        assert group.names == ()
+    finally:
+        group.close()
     from bruhanimate.doctor import diagnose
 
     assert "packages" in diagnose()
@@ -46,7 +108,16 @@ def main() -> None:
         history.close()
     assert effects.snow.preset("light") == SnowSettings(intensity=0.005)
     assert "snow" in effects.names()
-    for name in ("water", "smoke", "metaballs", "cloth", "terrain"):
+    for name in (
+        "flow",
+        "growth",
+        "starfield",
+        "water",
+        "smoke",
+        "metaballs",
+        "cloth",
+        "terrain",
+    ):
         info = getattr(effects, name)
         assert info.presets()
         effect = package.effect_registry.create(name, Buffer(8, 16), " ", seed=42)

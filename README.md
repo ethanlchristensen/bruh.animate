@@ -53,6 +53,8 @@ play("snow", preset="light", fps=60, updates_per_second=30)
 Press **q**, **Escape**, or **Ctrl+C** to quit and restore the terminal.
 `fps` controls presentation; `updates_per_second` controls simulation ticks.
 Set `frames=120` to limit the number of presented frames.
+Terminal output failures propagate after cleanup. On Unix, resuming a suspended
+process requests a full repaint without restarting its animation.
 
 ## Browse, save, and export
 
@@ -70,6 +72,8 @@ when you quit. Use `/` to search, `c` for categories, `e` to edit settings, `s` 
 save a preset, and `x` to export after restoring the terminal. Saved JSON stores validated settings, seeds, playback rates and
 capture dimensions. Explicit CLI flags override saved options. See the
 [browser/configuration guide](docs/source/workbench.rst).
+Generated snippets for application-defined effects require your registration code
+to run first; edited settings are constructed through the registered settings type.
 
 `Tween` adds callback-based easing for positions and effect parameters; `Theme`
 shares semantic colors across widgets, panels and exports. `CachedAnimation`
@@ -80,6 +84,88 @@ reuses drawing only when you explicitly control invalidation. See
 `BackgroundPlayback` keeps cooperative slow producers off the Player thread with
 a bounded queue and explicit cancellation. Ordinary `Playback` still retains one
 snapshot. See [solver tools](docs/source/solver_tools.rst) for ownership and limits.
+
+`AnimationControl` adds pause, queued single-step and runtime time scaling. Choose
+`mode="fixed"` for tick-based effects or `mode="continuous"` for elapsed-time
+animations. `ActionQueue` keeps input commands bounded until application updates
+consume them. See the [controls guide](docs/source/controls.rst), or run
+`python -m bruhanimate.demos.controls_demo`.
+
+```python
+from bruhanimate import AnimationControl, Sprite, SpriteAsset
+
+sprite = Sprite(SpriteAsset.from_text("@"), velocity=(4, 0))
+control = AnimationControl(sprite, mode="continuous", paused=True, step_seconds=0.25)
+control.start()
+try:
+    control.step()
+    control.update(0)
+    assert sprite.position == (1, 0)
+finally:
+    control.close()
+```
+
+## Editable TUI forms
+
+`TextInput`, `Checkbox`, and `Button` add editable TUI forms with intrinsic focus
+targets. `FocusStack` isolates nested modal scopes and restores prior focus when
+they close. Read the [forms guide](docs/source/forms.rst), or run
+`python -m bruhanimate.demos.settings_demo` for an in-memory Apply/Cancel form.
+
+```python
+from bruhanimate import FocusGroup, TextInput
+
+field = TextInput("name", "Player", max_length=32)
+focus = FocusGroup(field.focus)
+field.start()
+try:
+    focus.handle_event(ord("q"))  # inserts text; does not quit
+    assert field.value == "Playerq"
+finally:
+    field.close()
+```
+
+## Sprites and dynamic objects
+
+For reusable moving objects, share immutable `SpriteAsset` / `SpriteClip` values
+between independent `Sprite` instances. `ObjectGroup` owns named children and
+applies add/remove/reorder commands between updates. Shapes draw directly into
+Buffers with bounded clipping:
+
+```python
+from bruhanimate import ObjectGroup, Sprite, SpriteAsset, SpriteClip, capture
+
+clip = SpriteClip([SpriteAsset.from_text(char) for char in "oO"], frame_duration=0.2)
+objects = ObjectGroup({
+    "left": Sprite(clip, position=(1, 1), velocity=(2, 0)),
+    "right": Sprite(clip, position=(20, 2), velocity=(-2, 0)),
+})
+frames = []
+capture(objects, width=30, height=5, frames=10, on_frame=frames.append)
+```
+
+Use `draw_line`, `draw_rect`, and `draw_ellipse` for clipped cell-space geometry.
+See the [objects guide](docs/source/objects.rst) for units, timing, transparency,
+ownership and input routing. Run `python -m bruhanimate.demos.objects_demo` for
+a live example with dynamically added and removed sparks.
+
+## Top-down game foundations
+
+`TileMap` adds immutable tile definitions, visible-cell drawing and swept grid
+movement. `Camera2D` provides world/screen transforms, bounded follow, and dead
+zones. Game rules and input remain explicit application code:
+
+```python
+from bruhanimate import Tile, TileMap
+
+world = TileMap(["..#.."], {".": Tile("."), "#": Tile("#", solid=True)})
+position = world.move((0, 0, 1, 1), (100, 0))
+assert position == (1, 0)  # stops before the wall, even for a large move
+```
+
+Run `python -m bruhanimate.demos.topdown_demo` to explore and collect stars with
+arrows/WASD. See the [top-down guide](docs/source/topdown.rst) for camera,
+collision, queued-input and resize behavior.
 
 ## Discover effects and presets
 
@@ -217,6 +303,9 @@ sequence = AnimationSequence(
 )
 play(sequence, duration=12, on_resize="resize")
 ```
+
+Blank sequence gaps disable descendant focus. `sequence.set_visible(False)` hides
+its current and future children without pausing the timeline.
 
 See the [sequencing guide](docs/source/sequencing.rst) for completion, skipped
 steps, child ownership, and resize behavior.
@@ -525,6 +614,41 @@ Change state in `update(dt)` and read it in `draw(buffer)`. The player owns the
 loop; animations own their state. The [core-concepts guide](https://ethanlchristensen.github.io/bruh.animate/concepts.html)
 walks through this division with complete examples.
 
+## Flow trails, branching growth, and star flight
+
+Three effects add nine presets, all available in the effect browser and CLI:
+
+| Effect | Presets | Visual |
+| --- | --- | --- |
+| `flow` | `neon`, `ocean`, `ember` | Curling particles with fading trails |
+| `growth` | `coral`, `forest`, `electric` | Branching shoots and overlapping generations |
+| `starfield` | `drift`, `warp`, `spiral` | Perspective star flight, streaks, and rotation |
+
+```python
+from bruhanimate import effects
+
+effects.starfield.play(
+    preset="warp", seed=42, fps=60, updates_per_second=30, on_resize="resize"
+)
+```
+
+Run `python -m bruhanimate.demos.flow_demo` (or `growth_demo`, `starfield_demo`)
+for a standalone demo. Configure `FlowSettings`, `GrowthSettings`, or
+`StarfieldSettings` to change particle budgets, speed, fading and branching.
+These effects need no additional dependencies. They use simulation ticks,
+support seeded capture and live resize, and keep drawing separate from updates.
+See the [creative effects guide](docs/source/creative_effects.rst) for settings,
+units, composition and resize contracts.
+
+For a spaceship flying through warp with animated engine flames:
+
+```sh
+uv run --locked python -m bruhanimate.demos.warp_demo
+```
+
+The ship drifts automatically and adapts to smaller terminals. Press q or Escape
+to quit. See the [warp demo](docs/source/demos/warp_demo.rst).
+
 ## Water, smoke, cloth, and procedural worlds
 
 Run all six together in resizable panels:
@@ -625,7 +749,7 @@ export are supported. See the [native checks guide](docs/source/platform_checks.
 for terminal and optional audio validation.
 The terminal demo is a pipe-based command console, not a PTY emulator.
 
-Changes in 1.5.0 are described in the [migration notes](docs/MIGRATING_1.5.md).
+Changes in 1.6.0 are described in the [migration notes](docs/MIGRATING_1.6.md).
 
 ## Development
 

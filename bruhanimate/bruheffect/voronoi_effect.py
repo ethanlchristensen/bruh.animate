@@ -94,7 +94,7 @@ class VoronoiEffect(BaseEffect):
 
         # Assign each pixel to its nearest seed
         min_d = np.full((self._h, self._w), np.inf)
-        nearest = np.zeros((self._h, self._w), dtype=np.int8)
+        nearest = np.zeros((self._h, self._w), dtype=np.intp)
         for i in range(len(self._seeds)):
             d = (self._X - sx[i]) ** 2 + ((self._Y - sy[i]) * 2) ** 2
             closer = d < min_d

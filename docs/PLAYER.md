@@ -264,6 +264,12 @@ See the [keyboard guide](source/keyboard.rst) for full options and examples.
 
 Player registers effect cleanup before startup, covering partial acquisition,
 update/draw errors, resize, quit, and Ctrl+C. It never closes a borrowed Screen.
+
+Terminal write/flush errors also propagate after cleanup and invalidate the
+presenter's diff baseline. Retrying a borrowed `FramePresenter` repaints the full
+frame. On Unix, resuming a suspended process queues terminal-mode restoration and
+a full repaint between frames; it does not restart content or count as a resize
+when the dimensions are unchanged.
 `manage_effect=False` borrows an already started instance and calls neither start
 nor close. Named effects and factories always produce owned instances.
 
